@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: str = "admin@crm.local"
     ADMIN_PASSWORD: str = "admin"
 
+    HERMES_API_URL: str = "http://localhost:8080"
+    HERMES_API_TOKEN: str = ""
+    HERMES_TIMEOUT: int = 30
+    HERMES_ENABLED: bool = True
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     STORAGE_DIR: Path = BASE_DIR / "storage"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"

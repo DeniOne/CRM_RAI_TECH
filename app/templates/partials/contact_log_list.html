@@ -1,31 +1,25 @@
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">Журнал звонков</h2>
-    <div id="log-list" class="space-y-2 mb-4">
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-medium text-ink">Журнал звонков</h2>
+        <button onclick="openDrawer('/leads/{{ lead.id }}/contact-log/form', 'Новая запись')"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+            + Добавить
+        </button>
+    </div>
+    <div id="log-list" class="space-y-2">
         {% for log in lead.contact_logs|sort(attribute='contact_date', reverse=true) %}
         {% include "partials/contact_log_row.html" %}
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+            </svg>
+            <div class="text-sm text-muted mb-3">Нет записей</div>
+            <button onclick="openDrawer('/leads/{{ lead.id }}/contact-log/form', 'Новая запись')"
+                    class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+                + Добавить
+            </button>
+        </div>
         {% endfor %}
     </div>
-    <form hx-post="/leads/{{ lead.id }}/contact-log" hx-target="#log-list" hx-swap="afterbegin" class="border-t pt-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <select name="contact_type" class="border rounded px-3 py-2 text-sm">
-                <option value="call">Звонок</option>
-                <option value="email">Email</option>
-                <option value="visit">Визит</option>
-            </select>
-            <textarea name="result" placeholder="Результат" required rows="1" class="border rounded px-3 py-2 text-sm"></textarea>
-            <select name="outcome" class="border rounded px-3 py-2 text-sm">
-                <option value="">Исход</option>
-                <option value="no_answer">Не дозвонился</option>
-                <option value="busy">Занято</option>
-                <option value="callback">Перезвонить</option>
-                <option value="agreed">Договорились</option>
-                <option value="refused">Отказ</option>
-                <option value="sent_kp">Отправлено КП</option>
-            </select>
-            <div class="flex gap-2">
-                <input type="date" name="next_action_date" class="border rounded px-3 py-2 text-sm flex-1" title="Дата следующего действия">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Добавить</button>
-            </div>
-        </div>
-    </form>
 </div>

@@ -1,1 +1,48 @@
-/* app.css — minimal overrides */
+/* Visual Canon — CRM RAI */
+
+:root {
+    --canvas: #F8FAFC;
+    --ink: #030213;
+    --muted: #717182;
+    --border: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: 'Geist Sans', system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--canvas);
+}
+
+.font-mono, code, pre {
+    font-family: 'Geist Mono', monospace;
+}
+
+#drawer.open {
+    transform: translateX(0);
+}
+
+.tooltip-trigger {
+    position: relative;
+    cursor: help;
+}
+.tooltip-trigger:hover .tooltip-content {
+    display: block;
+}
+.tooltip-content {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 50;
+    margin-bottom: 4px;
+}
+
+.view-mode .edit-field { display: none; }
+.edit-mode .view-field { display: none; }

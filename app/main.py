@@ -39,7 +39,7 @@ app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="stat
 
 templates = Jinja2Templates(directory=str(settings.TEMPLATES_DIR))
 
-from app.routes import auth, dashboard, leads, tasks, documents, deals  # noqa: E402
+from app.routes import auth, dashboard, leads, tasks, documents, deals, reports, agent  # noqa: E402
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
@@ -47,3 +47,5 @@ app.include_router(leads.router)
 app.include_router(tasks.router)
 app.include_router(documents.router)
 app.include_router(deals.router)
+app.include_router(reports.router)
+app.include_router(agent.router)

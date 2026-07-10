@@ -1,45 +1,110 @@
 {% extends "base.html" %}
 {% block title %}Дашборд — CRM RAI{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">Дашборд</h1>
+<h1 class="text-2xl font-medium mb-6 text-ink">
+    {% if is_manager %}Мой дашборд{% else %}Дашборд{% endif %}
+</h1>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-lg shadow p-4 text-center">
-        <div class="text-3xl font-bold text-blue-600">{{ total_leads }}</div>
-        <div class="text-sm text-gray-500">Всего лидов</div>
+    <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
+        <div class="text-3xl font-medium text-ink">{{ total_leads }}</div>
+        <div class="text-sm text-muted">{% if is_manager %}Мои лиды{% else %}Всего лидов{% endif %}</div>
     </div>
+    {% if is_manager %}
+    <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
+        <div class="text-3xl font-medium text-emerald-500">{{ calls_today }}</div>
+        <div class="text-sm text-muted">Звонков сегодня</div>
+    </div>
+    <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
+        <div class="text-3xl font-medium text-amber-600">{{ overdue_tasks|length }}</div>
+        <div class="text-sm text-muted">Просроченных</div>
+    </div>
+    <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
+        <div class="text-3xl font-medium text-blue-500">{{ today_tasks|length }}</div>
+        <div class="text-sm text-muted">На сегодня</div>
+    </div>
+    {% else %}
     {% for level in ["A", "B", "C"] %}
-    <div class="bg-white rounded-lg shadow p-4 text-center">
-        <div class="text-3xl font-bold
-            {% if level == 'A' %}text-green-600{% elif level == 'B' %}text-yellow-600{% else %}text-gray-600{% endif %}">
+    <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
+        <div class="text-3xl font-medium
+            {% if level == 'A' %}text-emerald-500{% elif level == 'B' %}text-amber-600{% else %}text-muted{% endif %}">
             {{ by_level.get(level, 0) }}</div>
-        <div class="text-sm text-gray-500">Уровень {{ level }}</div>
+        <div class="text-sm text-muted">Уровень {{ level }}</div>
     </div>
     {% endfor %}
+    {% endif %}
 </div>
 
-<h2 class="text-lg font-semibold mb-3">Воронка по стадиям</h2>
+<h2 class="text-lg font-medium mb-3 text-ink">{% if is_manager %}Моя воронка{% else %}Воронка по стадиям{% endif %}</h2>
 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-    {% set stages = [("0", "Сырые", "gray"), ("1", "В работе", "blue"), ("2", "Квалифиц.", "indigo"), ("3", "КП отправ.", "purple"), ("4", "Переговоры", "orange"), ("5", "Договор", "yellow"), ("6", "Счёт", "cyan"), ("7", "Оплачено", "green"), ("lost", "Потерян", "red")] %}
+    {% set stages = [("0", "Сырые", "blue"), ("1", "В работе", "blue"), ("2", "Квалифиц.", "indigo"), ("3", "КП отправ.", "purple"), ("4", "Переговоры", "orange"), ("5", "Договор", "amber"), ("6", "Счёт", "cyan"), ("7", "Оплачено", "emerald"), ("lost", "Потерян", "red")] %}
     {% for code, label, color in stages %}
-    <div class="bg-white rounded-lg shadow p-3 text-center">
-        <div class="text-2xl font-bold text-{{ color }}-600">{{ by_stage.get(code, 0) }}</div>
-        <div class="text-xs text-gray-500">{{ label }}</div>
+    <div class="bg-white border border-black/10 rounded-2xl p-3 text-center">
+        <div class="text-2xl font-medium text-{{ color }}-500">{{ by_stage.get(code, 0) }}</div>
+        <div class="text-xs text-muted">{{ label }}</div>
     </div>
     {% endfor %}
 </div>
 
-<h2 class="text-lg font-semibold mb-3">По регионам</h2>
-<div class="bg-white rounded-lg shadow overflow-hidden">
+{% if is_manager %}
+{% if overdue_tasks %}
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <h2 class="text-lg font-medium mb-4 text-amber-600">Просроченные задачи</h2>
+    <div class="space-y-2">
+        {% for task in overdue_tasks %}
+        <div class="flex items-center justify-between p-3 bg-amber-50 rounded-lg border-l-4 border-amber-600">
+            <div>
+                <div class="font-medium text-sm text-ink">{{ task.title }}</div>
+                <div class="text-xs text-muted">
+                    {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else 'без срока' }}
+                    {% if task.lead %} · <a href="/leads/{{ task.lead.id }}" class="text-blue-500 hover:underline">{{ task.lead.name }}</a>{% endif %}
+                </div>
+            </div>
+            <a href="/tasks" class="text-ink text-sm hover:underline">Все задачи</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if today_tasks %}
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <h2 class="text-lg font-medium mb-4 text-ink">Задачи на сегодня</h2>
+    <div class="space-y-2">
+        {% for task in today_tasks[:5] %}
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <div>
+                <div class="font-medium text-sm text-ink">{{ task.title }}</div>
+                <div class="text-xs text-muted">
+                    {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else 'без срока' }}
+                    {% if task.lead %} · <a href="/leads/{{ task.lead.id }}" class="text-blue-500 hover:underline">{{ task.lead.name }}</a>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if today_tasks|length > 5 %}
+        <a href="/tasks" class="text-ink text-sm hover:underline">Показать все ({{ today_tasks|length }})</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<a href="/tasks" class="inline-block bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Все мои задачи</a>
+{% else %}
+{% if by_region %}
+<h2 class="text-lg font-medium mb-3 text-ink">По регионам</h2>
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
     <table class="w-full text-sm">
-        <thead class="bg-gray-50">
-            <tr><th class="text-left px-4 py-2">Регион</th><th class="text-right px-4 py-2">Лидов</th></tr>
+        <thead class="text-muted border-b border-black/10">
+            <tr><th class="text-left px-4 py-2 font-medium">Регион</th><th class="text-right px-4 py-2 font-medium">Лидов</th></tr>
         </thead>
         <tbody>
             {% for r in by_region %}
-            <tr class="border-t"><td class="px-4 py-2">{{ r.name }}</td><td class="text-right px-4 py-2">{{ r.total }}</td></tr>
+            <tr class="border-b border-black/10 hover:bg-slate-50"><td class="px-4 py-2 text-ink">{{ r.name }}</td><td class="text-right px-4 py-2 text-ink">{{ r.total }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endif %}
+{% endif %}
 {% endblock %}

@@ -1,8 +1,8 @@
-<div class="flex items-center justify-between p-3 bg-gray-50 rounded border" id="contact-{{ contact.id }}">
+<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-black/10" id="contact-{{ contact.id }}">
     <div class="flex-1">
-        <div class="font-medium text-sm">{{ contact.name or '—' }}</div>
-        <div class="text-xs text-gray-500">
-            {{ contact.phone }}
+        <div class="font-medium text-sm text-ink">{{ contact.name or '—' }}</div>
+        <div class="text-xs text-muted">
+            <span class="font-mono">{{ contact.phone }}</span>
             {% if contact.position %} · {{ contact.position }}{% endif %}
             {% if contact.email %} · {{ contact.email }}{% endif %}
         </div>
@@ -13,7 +13,7 @@
                 hx-post="/leads/{{ lead_id }}/contacts/{{ contact.id }}/toggle-dm"
                 hx-target="#contact-{{ contact.id }}" hx-swap="outerHTML"
                 class="rounded">
-            ЛПР
+            <span class="text-muted">ЛПР</span>
         </label>
     </div>
 </div>

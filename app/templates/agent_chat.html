@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Чат с агентом — CRM RAI{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+    <div class="flex justify-between items-center mb-4">
+        <h1 class="text-2xl font-medium text-ink">Чат с агентом</h1>
+        <form action="/agent/clear" method="post">
+            <button type="submit" class="text-muted hover:text-ink text-sm">Очистить историю</button>
+        </form>
+    </div>
+
+    <div id="chat-history" class="bg-white border border-black/10 rounded-2xl p-6 mb-4 min-h-[400px] max-h-[600px] overflow-y-auto space-y-4">
+        {% for msg in messages %}
+        <div class="{% if msg.role == 'user' %}text-right{% else %}text-left{% endif %}">
+            <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl
+                {% if msg.role == 'user' %}
+                    bg-ink text-white
+                {% else %}
+                    bg-slate-50 border border-black/10 text-ink
+                {% endif %}">
+                <div class="text-sm whitespace-pre-wrap">{{ msg.content }}</div>
+            </div>
+            <div class="text-xs text-muted mt-1">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-12">
+            <div class="text-sm">Начните разговор с агентом</div>
+            <div class="text-xs mt-2">Например: «Найди клиентов в Псковской области»</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form hx-post="/agent/send" hx-target="#chat-history" hx-swap="beforeend"
+          hx-on::after-request="document.getElementById('message-input').value=''; document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight"
+          class="flex gap-2">
+        <input type="hidden" name="context_lead_id" value="">
+        <input type="text" id="message-input" name="message" required
+               placeholder="Напишите сообщение агенту..."
+               class="flex-1 border border-black/10 rounded-lg px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
+        <button type="submit" class="bg-ink text-white px-6 py-2 rounded-lg text-sm hover:bg-ink/90">
+            Отправить
+        </button>
+    </form>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+        <button onclick="document.getElementById('message-input').value='Найди клиентов уровня A в Псковской области'"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
+            Найти клиентов
+        </button>
+        <button onclick="document.getElementById('message-input').value='Какие у меня задачи на сегодня?'"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
+            Мои задачи
+        </button>
+        <button onclick="document.getElementById('message-input').value='Создай задачу: перезвонить ООО Тригорское завтра'"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
+            Создать задачу
+        </button>
+    </div>
+</div>
+
+{% endblock %}

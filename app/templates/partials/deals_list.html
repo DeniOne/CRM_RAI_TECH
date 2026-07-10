@@ -1,26 +1,26 @@
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">Сделки</h2>
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-medium text-ink">Сделки</h2>
+        <button onclick="openDrawer('/leads/{{ lead_id }}/deals/form', 'Новая сделка')"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+            + Создать
+        </button>
+    </div>
 
-    <div id="deals-list" class="space-y-2 mb-4">
+    <div id="deals-list" class="space-y-2">
         {% for deal in deals %}
         {% include "partials/deal_row.html" %}
         {% else %}
-        <div class="text-gray-400 text-sm">Нет сделок</div>
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div class="text-sm text-muted mb-3">Нет сделок</div>
+            <button onclick="openDrawer('/leads/{{ lead_id }}/deals/form', 'Новая сделка')"
+                    class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+                + Создать
+            </button>
+        </div>
         {% endfor %}
-    </div>
-
-    <div class="border-t pt-4">
-        <h3 class="text-sm font-medium mb-2">Новая сделка</h3>
-        <form hx-post="/leads/{{ lead_id }}/deals" hx-target="#tab-deals" hx-swap="innerHTML" class="flex gap-3 items-end">
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Название</label>
-                <input type="text" name="title" required placeholder="КП ГРИПИЛ 100л" class="border rounded px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Сумма</label>
-                <input type="number" name="amount" step="0.01" class="border rounded px-3 py-2 text-sm w-32">
-            </div>
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Создать</button>
-        </form>
     </div>
 </div>

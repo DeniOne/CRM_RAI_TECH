@@ -367,3 +367,47 @@ async def assign_manager(
         name="partials/lead_info_form.html",
         context={"current_user": user, "lead": lead, "users": users},
     )
+
+
+@router.get("/leads/{lead_id}/contacts/form", response_class=HTMLResponse)
+async def contact_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/contact_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )
+
+
+@router.get("/leads/{lead_id}/contact-log/form", response_class=HTMLResponse)
+async def contact_log_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/contact_log_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )
+
+
+@router.get("/leads/{lead_id}/comments/form", response_class=HTMLResponse)
+async def comment_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/comment_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )
+
+
+@router.get("/leads/{lead_id}/deals/form", response_class=HTMLResponse)
+async def deal_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/deal_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )

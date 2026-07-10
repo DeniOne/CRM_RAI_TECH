@@ -48,7 +48,7 @@ async def lead_deals(
     user = await get_current_user(request, session)
 
     result = await session.execute(
-        select(Deal).where(Deal.lead_id == lead_id).order_by(Deal.created_at.desc())
+        select(Deal).where(Deal.lead_id == lead_id).options(selectinload(Deal.lead)).order_by(Deal.created_at.desc())
     )
     deals = result.scalars().all()
 
@@ -81,7 +81,7 @@ async def create_deal(
     await session.commit()
 
     result = await session.execute(
-        select(Deal).where(Deal.lead_id == lead_id).order_by(Deal.created_at.desc())
+        select(Deal).where(Deal.lead_id == lead_id).options(selectinload(Deal.lead)).order_by(Deal.created_at.desc())
     )
     deals = result.scalars().all()
 

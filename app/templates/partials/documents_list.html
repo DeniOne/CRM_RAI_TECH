@@ -1,25 +1,31 @@
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">Документы</h2>
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <h2 class="text-lg font-medium mb-4 text-ink">Документы</h2>
 
     <div id="documents-list" class="space-y-2 mb-4">
         {% for doc in documents %}
         {% include "partials/document_row.html" %}
         {% else %}
-        <div class="text-gray-400 text-sm">Нет документов</div>
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <div class="text-sm text-muted mb-3">Нет документов</div>
+        </div>
         {% endfor %}
     </div>
 
-    <div class="border-t pt-4">
-        <h3 class="text-sm font-medium mb-2">Сгенерировать документ</h3>
+    {% if active_templates %}
+    <div class="border-t border-black/10 pt-4">
+        <h3 class="text-sm font-medium mb-2 text-ink">Сгенерировать документ</h3>
         <form hx-post="/leads/{{ lead_id }}/documents/generate" hx-target="#tab-documents" hx-swap="innerHTML">
             <div class="flex gap-3 items-end flex-wrap">
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Шаблон</label>
+                    <label class="block text-xs text-muted mb-1">Шаблон</label>
                     <select name="template_id" id="template-select"
                         hx-get="/templates/{{ active_templates[0].id if active_templates else 0 }}/fields"
                         hx-target="#extra-fields" hx-trigger="change"
                         hx-include="[name='template_id']"
-                        class="border rounded px-3 py-2 text-sm">
+                        class="border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
                         {% for t in active_templates %}
                         <option value="{{ t.id }}">{{ t.name }} ({{ t.doc_type }})</option>
                         {% endfor %}
@@ -27,8 +33,15 @@
                 </div>
                 <div id="extra-fields" class="flex gap-2 flex-wrap">
                 </div>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Сгенерировать</button>
+                <button type="submit" class="bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Сгенерировать</button>
             </div>
         </form>
     </div>
+    {% else %}
+    <div class="border-t border-black/10 pt-4">
+        <div class="flex flex-col items-center justify-center py-6 text-center">
+            <div class="text-sm text-muted mb-3">Загрузите шаблон на странице <a href="/templates" class="text-blue-500 hover:underline">Шаблоны</a></div>
+        </div>
+    </div>
+    {% endif %}
 </div>

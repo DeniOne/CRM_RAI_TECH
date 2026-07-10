@@ -1,0 +1,34 @@
+<form hx-post="/leads/{{ lead_id }}/contact-log" hx-target="#log-list" hx-swap="afterbegin"
+      hx-on::after-request="closeDrawer()">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Тип</label>
+            <select name="contact_type" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                <option value="call">Звонок</option>
+                <option value="email">Email</option>
+                <option value="visit">Визит</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Результат</label>
+            <textarea name="result" required rows="3" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink"></textarea>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Исход</label>
+            <select name="outcome" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                <option value="">—</option>
+                <option value="no_answer">Не дозвонился</option>
+                <option value="busy">Занято</option>
+                <option value="callback">Перезвонить</option>
+                <option value="agreed">Договорились</option>
+                <option value="refused">Отказ</option>
+                <option value="sent_kp">Отправлено КП</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Дата следующего действия</label>
+            <input type="date" name="next_action_date" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Добавить</button>
+    </div>
+</form>

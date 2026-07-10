@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Воронка по регионам — CRM RAI{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <a href="/reports" class="text-ink text-sm hover:underline">&larr; Назад к аналитике</a>
+</div>
+
+<h1 class="text-2xl font-medium mb-6 text-ink">Воронка по регионам</h1>
+
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left px-4 py-2 font-medium">Регион</th>
+                <th class="text-right px-4 py-2 font-medium">Сырые</th>
+                <th class="text-right px-4 py-2 font-medium">В работе</th>
+                <th class="text-right px-4 py-2 font-medium">Квалиф.</th>
+                <th class="text-right px-4 py-2 font-medium">КП</th>
+                <th class="text-right px-4 py-2 font-medium">Перег.</th>
+                <th class="text-right px-4 py-2 font-medium">Договор</th>
+                <th class="text-right px-4 py-2 font-medium">Счёт</th>
+                <th class="text-right px-4 py-2 font-medium">Оплата</th>
+                <th class="text-right px-4 py-2 font-medium">Потерян</th>
+                <th class="text-right px-4 py-2 font-medium">Всего</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in funnel_regions %}
+            <tr class="border-b border-black/10 hover:bg-slate-50">
+                <td class="px-4 py-2 font-medium text-ink">{{ r.region }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_0', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_1', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_2', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_3', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_4', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_5', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_6', 0) }}</td>
+                <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_7', 0) }}</td>
+                <td class="text-right px-4 py-2 text-red-600">{{ r.get('stage_lost', 0) }}</td>
+                <td class="text-right px-4 py-2 font-medium text-ink">{{ r.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

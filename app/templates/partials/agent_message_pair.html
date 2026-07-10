@@ -1,0 +1,13 @@
+<div class="text-right mb-2">
+    <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-ink text-white">
+        <div class="text-sm whitespace-pre-wrap">{{ user_message }}</div>
+    </div>
+</div>
+<div class="text-left mb-4">
+    <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-slate-50 border border-black/10 text-ink">
+        <div class="text-sm whitespace-pre-wrap">{{ agent_reply }}</div>
+    </div>
+    {% if created_at %}
+    <div class="text-xs text-muted mt-1">{{ created_at.strftime('%H:%M') }}</div>
+    {% endif %}
+</div>

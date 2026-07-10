@@ -1,15 +1,15 @@
-<div class="flex items-center justify-between p-3 bg-gray-50 rounded border">
+<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-black/10">
     <div class="flex-1">
-        <div class="font-medium text-sm">{{ deal.title }}</div>
-        <div class="text-xs text-gray-500">
-            {% if deal.amount %}{{ deal.amount }} ₽ · {% endif %}
+        <div class="font-medium text-sm text-ink">{{ deal.title }}</div>
+        <div class="text-xs text-muted">
+            {% if deal.amount %}<span class="font-mono">{{ deal.amount }}</span> ₽ · {% endif %}
             {{ deal.created_at.strftime('%d.%m.%Y') }}
             {% if deal.lead %} · {{ deal.lead.name }}{% endif %}
         </div>
     </div>
     <div class="flex items-center gap-2">
         <select hx-post="/deals/{{ deal.id }}/status" hx-target="closest div" hx-swap="outerHTML"
-                name="status" class="text-xs border rounded px-2 py-1">
+                name="status" class="text-xs border border-black/10 rounded-lg px-2 py-1 text-ink bg-white">
             <option value="new" {% if deal.status=='new' %}selected{% endif %}>Новая</option>
             <option value="kp_sent" {% if deal.status=='kp_sent' %}selected{% endif %}>КП отправлено</option>
             <option value="negotiation" {% if deal.status=='negotiation' %}selected{% endif %}>Переговоры</option>

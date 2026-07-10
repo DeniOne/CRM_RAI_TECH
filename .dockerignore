@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.planning/
+.zcode/
+.mimocode/
+*.xlsx
+storage/*.db
+storage/documents/
+tests/
+*.md

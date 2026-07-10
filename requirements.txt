@@ -12,3 +12,4 @@ docx2pdf
 openpyxl
 pandas
 itsdangerous
+httpx

@@ -1,0 +1,13 @@
+services:
+  crm:
+    build: .
+    container_name: crm-rai-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./templates_docx:/app/templates_docx
+    env_file:
+      - .env
+    restart: unless-stopped
+    network_mode: host

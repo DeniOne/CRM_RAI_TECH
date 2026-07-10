@@ -1,19 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Таски — CRM RAI{% endblock %}
+{% block title %}Задачи — CRM RAI{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Мои таски</h1>
+<h1 class="text-2xl font-medium mb-4 text-ink">Мои задачи</h1>
 
 <div class="flex gap-2 mb-4">
-    <a href="/tasks?status=pending" class="px-3 py-1.5 text-sm rounded {% if status == 'pending' %}bg-blue-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %}">Активные</a>
-    <a href="/tasks?status=done" class="px-3 py-1.5 text-sm rounded {% if status == 'done' %}bg-blue-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %}">Завершённые</a>
-    <a href="/tasks?status=all" class="px-3 py-1.5 text-sm rounded {% if status == 'all' %}bg-blue-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %}">Все</a>
+    <a href="/tasks?status=pending" class="px-3 py-1.5 text-sm rounded-lg {% if status == 'pending' %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">Активные</a>
+    <a href="/tasks?status=done" class="px-3 py-1.5 text-sm rounded-lg {% if status == 'done' %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">Завершённые</a>
+    <a href="/tasks?status=all" class="px-3 py-1.5 text-sm rounded-lg {% if status == 'all' %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">Все</a>
 </div>
 
 <div id="tasks-list" class="space-y-2">
     {% for task in tasks %}
     {% include "partials/task_row.html" %}
     {% else %}
-    <div class="text-gray-400 text-center py-8">Нет тасков</div>
+    <div class="flex flex-col items-center justify-center py-12 text-center">
+        <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        <div class="text-sm text-muted mb-3">Нет задач</div>
+    </div>
     {% endfor %}
 </div>
 {% endblock %}

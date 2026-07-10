@@ -1,0 +1,14 @@
+<form hx-post="/leads/{{ lead_id }}/deals" hx-target="#deals-list" hx-swap="beforeend"
+      hx-on::after-request="closeDrawer()">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Название</label>
+            <input type="text" name="title" required placeholder="КП ГРИПИЛ 100л" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Сумма</label>
+            <input type="number" name="amount" step="0.01" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Создать</button>
+    </div>
+</form>

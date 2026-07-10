@@ -1,21 +1,25 @@
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold mb-4">Контакты</h2>
-    <div id="contacts-list" class="space-y-2 mb-4">
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-medium text-ink">Контакты</h2>
+        <button onclick="openDrawer('/leads/{{ lead.id }}/contacts/form', 'Новый контакт')"
+                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+            + Добавить
+        </button>
+    </div>
+    <div id="contacts-list" class="space-y-2">
         {% for contact in lead.contacts %}
         {% include "partials/contact_row.html" %}
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <div class="text-sm text-muted mb-3">Нет контактов</div>
+            <button onclick="openDrawer('/leads/{{ lead.id }}/contacts/form', 'Новый контакт')"
+                    class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-50">
+                + Добавить
+            </button>
+        </div>
         {% endfor %}
     </div>
-    <form hx-post="/leads/{{ lead.id }}/contacts" hx-target="#contacts-list" hx-swap="beforeend" class="border-t pt-4">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <input type="text" name="name" placeholder="Имя" class="border rounded px-3 py-2 text-sm">
-            <input type="text" name="position" placeholder="Должность" class="border rounded px-3 py-2 text-sm">
-            <input type="text" name="phone" placeholder="Телефон" required class="border rounded px-3 py-2 text-sm">
-            <input type="email" name="email" placeholder="Email" class="border rounded px-3 py-2 text-sm">
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_decision_maker" id="new_dm" class="rounded">
-                <label for="new_dm" class="text-sm text-gray-600">ЛПР</label>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 ml-auto">Добавить</button>
-            </div>
-        </div>
-    </form>
 </div>

@@ -28,3 +28,9 @@ Thumbs.db
 
 # Generated templates
 templates_docx/*.docx
+
+# Environment
+.env
+
+# Generated reports
+storage/exports/

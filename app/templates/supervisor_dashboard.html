@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Аналитика — CRM RAI{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-medium text-ink">Аналитика</h1>
+    <div class="flex gap-2">
+        <a href="/reports/funnel" class="px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">Воронка</a>
+        <a href="/reports/managers" class="px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">KPI менеджеров</a>
+        <a href="/reports/export" class="px-3 py-1.5 text-sm bg-ink text-white rounded-lg hover:bg-ink/90">Экспорт Excel</a>
+    </div>
+</div>
+
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <h2 class="text-lg font-medium mb-4 text-ink flex items-center gap-1">
+        Воронка продаж
+        <span class="tooltip-trigger text-muted text-sm">ⓘ
+            <span class="tooltip-content">Распределение лидов по стадиям. Конверсия — процент перехода между соседними стадиями.</span>
+        </span>
+    </h2>
+    <div class="space-y-2">
+        {% for stage in funnel_totals.stages %}
+        <div class="flex items-center gap-4">
+            <div class="w-32 text-sm text-muted">{{ stage.label }}</div>
+            <div class="flex-1 bg-slate-100 rounded-full h-6 relative">
+                {% set pct = (stage.count / funnel_totals.total_leads * 100) if funnel_totals.total_leads else 0 %}
+                <div class="absolute inset-y-0 left-0 rounded-full
+                    {% if stage.code == 'lost' %}bg-red-500
+                    {% elif stage.code in ['6', '7'] %}bg-emerald-500
+                    {% elif stage.code in ['3', '4', '5'] %}bg-blue-500
+                    {% else %}bg-slate-300{% endif %}"
+                    style="width: {{ pct }}%"></div>
+            </div>
+            <div class="w-12 text-sm font-medium text-right text-ink">{{ stage.count }}</div>
+            {% if stage.conversion_pct is not none %}
+            <div class="w-16 text-xs text-right
+                {% if stage.conversion_pct < 25 %}text-red-600
+                {% elif stage.conversion_pct < 50 %}text-amber-600
+                {% else %}text-emerald-500{% endif %}">
+                {{ stage.conversion_pct }}%
+            </div>
+            {% else %}
+            <div class="w-16"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="mt-4 text-sm text-muted">Всего лидов: {{ funnel_totals.total_leads }}</div>
+</div>
+
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <h2 class="text-lg font-medium mb-4 text-ink flex items-center gap-1">
+        Просадки воронки
+        <span class="tooltip-trigger text-muted text-sm">ⓘ
+            <span class="tooltip-content">Переходы между стадиями с конверсией менее 50% считаются просадками.</span>
+        </span>
+    </h2>
+    {% if bottlenecks %}
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left py-2 font-medium">Переход</th>
+                <th class="text-right py-2 font-medium">Было</th>
+                <th class="text-right py-2 font-medium">Стало</th>
+                <th class="text-right py-2 font-medium">Конверсия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in bottlenecks %}
+            <tr class="border-b border-black/10">
+                <td class="py-2 text-ink">{{ b.from_label }} → {{ b.to_label }}</td>
+                <td class="text-right py-2 text-ink">{{ b.from_count }}</td>
+                <td class="text-right py-2 text-ink">{{ b.to_count }}</td>
+                <td class="text-right py-2
+                    {% if b.conversion_pct < 25 %}text-red-600 font-medium
+                    {% elif b.conversion_pct < 50 %}text-amber-600
+                    {% else %}text-emerald-500{% endif %}">
+                    {{ b.conversion_pct }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-muted text-center py-4">Недостаточно данных</div>
+    {% endif %}
+</div>
+
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <h2 class="text-lg font-medium mb-4 text-ink">Топ-10 регионов</h2>
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left py-2 font-medium">Регион</th>
+                <th class="text-right py-2 font-medium">Лидов</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in funnel_regions %}
+            <tr class="border-b border-black/10 hover:bg-slate-50">
+                <td class="py-2 text-ink">{{ r.region }}</td>
+                <td class="text-right py-2 text-ink">{{ r.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

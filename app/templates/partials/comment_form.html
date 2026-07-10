@@ -1,0 +1,10 @@
+<form hx-post="/leads/{{ lead_id }}/comments" hx-target="#comments-list" hx-swap="afterbegin"
+      hx-on::after-request="closeDrawer()">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Комментарий</label>
+            <textarea name="body" required rows="4" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Добавить</button>
+    </div>
+</form>
