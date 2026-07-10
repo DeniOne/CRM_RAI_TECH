@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+storage/*.db
+storage/documents/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MiMoCode
+.mimocode/
+.zcode/
+
+# Excel data files
+*.xlsx
+
+# Generated templates
+templates_docx/*.docx

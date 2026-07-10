@@ -1,0 +1,25 @@
+<div class="flex items-center justify-between p-3 bg-gray-50 rounded border">
+    <div class="flex-1">
+        <div class="font-medium text-sm">{{ doc.title }}</div>
+        <div class="text-xs text-gray-500">
+            {{ doc.doc_type }}
+            {% if doc.number %} · №{{ doc.number }}{% endif %}
+            {% if doc.amount %} · {{ doc.amount }} ₽{% endif %}
+            · {{ doc.created_at.strftime('%d.%m.%Y') }}
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <select hx-post="/documents/{{ doc.id }}/status" hx-target="closest div" hx-swap="outerHTML"
+                name="status" class="text-xs border rounded px-2 py-1">
+            <option value="draft" {% if doc.status=='draft' %}selected{% endif %}>Черновик</option>
+            <option value="sent" {% if doc.status=='sent' %}selected{% endif %}>Отправлен</option>
+            <option value="viewed" {% if doc.status=='viewed' %}selected{% endif %}>Просмотрен</option>
+            <option value="accepted" {% if doc.status=='accepted' %}selected{% endif %}>Принят</option>
+            <option value="rejected" {% if doc.status=='rejected' %}selected{% endif %}>Отклонён</option>
+        </select>
+        <a href="/documents/{{ doc.id }}/download?format=docx" class="text-blue-500 hover:text-blue-700 text-xs">.docx</a>
+        {% if doc.file_path_pdf %}
+        <a href="/documents/{{ doc.id }}/download?format=pdf" class="text-red-500 hover:text-red-700 text-xs">.pdf</a>
+        {% endif %}
+    </div>
+</div>

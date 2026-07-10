@@ -1,0 +1,31 @@
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Журнал звонков</h2>
+    <div id="log-list" class="space-y-2 mb-4">
+        {% for log in lead.contact_logs|sort(attribute='contact_date', reverse=true) %}
+        {% include "partials/contact_log_row.html" %}
+        {% endfor %}
+    </div>
+    <form hx-post="/leads/{{ lead.id }}/contact-log" hx-target="#log-list" hx-swap="afterbegin" class="border-t pt-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <select name="contact_type" class="border rounded px-3 py-2 text-sm">
+                <option value="call">Звонок</option>
+                <option value="email">Email</option>
+                <option value="visit">Визит</option>
+            </select>
+            <textarea name="result" placeholder="Результат" required rows="1" class="border rounded px-3 py-2 text-sm"></textarea>
+            <select name="outcome" class="border rounded px-3 py-2 text-sm">
+                <option value="">Исход</option>
+                <option value="no_answer">Не дозвонился</option>
+                <option value="busy">Занято</option>
+                <option value="callback">Перезвонить</option>
+                <option value="agreed">Договорились</option>
+                <option value="refused">Отказ</option>
+                <option value="sent_kp">Отправлено КП</option>
+            </select>
+            <div class="flex gap-2">
+                <input type="date" name="next_action_date" class="border rounded px-3 py-2 text-sm flex-1" title="Дата следующего действия">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Добавить</button>
+            </div>
+        </div>
+    </form>
+</div>

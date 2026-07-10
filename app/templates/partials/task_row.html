@@ -1,0 +1,16 @@
+<div class="flex items-center justify-between p-3 bg-gray-50 rounded border {% if task.is_overdue %}border-l-4 border-red-500{% endif %}">
+    <div>
+        <div class="font-medium text-sm">{{ task.title }}</div>
+        <div class="text-xs text-gray-500">
+            {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else 'без срока' }}
+            {% if task.lead %} · <a href="/leads/{{ task.lead.id }}" class="text-blue-500 hover:underline">{{ task.lead.name }}</a>{% endif %}
+        </div>
+    </div>
+    <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="closest div" hx-swap="outerHTML"
+            name="status" class="text-sm border rounded px-2 py-1">
+        <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
+        <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
+        <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>
+        <option value="cancelled" {% if task.status=='cancelled' %}selected{% endif %}>Отменено</option>
+    </select>
+</div>

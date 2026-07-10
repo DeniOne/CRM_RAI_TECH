@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Дашборд — CRM RAI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Дашборд</h1>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <div class="text-3xl font-bold text-blue-600">{{ total_leads }}</div>
+        <div class="text-sm text-gray-500">Всего лидов</div>
+    </div>
+    {% for level in ["A", "B", "C"] %}
+    <div class="bg-white rounded-lg shadow p-4 text-center">
+        <div class="text-3xl font-bold
+            {% if level == 'A' %}text-green-600{% elif level == 'B' %}text-yellow-600{% else %}text-gray-600{% endif %}">
+            {{ by_level.get(level, 0) }}</div>
+        <div class="text-sm text-gray-500">Уровень {{ level }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 class="text-lg font-semibold mb-3">Воронка по стадиям</h2>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+    {% set stages = [("0", "Сырые", "gray"), ("1", "В работе", "blue"), ("2", "Квалифиц.", "indigo"), ("3", "КП отправ.", "purple"), ("4", "Переговоры", "orange"), ("5", "Договор", "yellow"), ("6", "Счёт", "cyan"), ("7", "Оплачено", "green"), ("lost", "Потерян", "red")] %}
+    {% for code, label, color in stages %}
+    <div class="bg-white rounded-lg shadow p-3 text-center">
+        <div class="text-2xl font-bold text-{{ color }}-600">{{ by_stage.get(code, 0) }}</div>
+        <div class="text-xs text-gray-500">{{ label }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 class="text-lg font-semibold mb-3">По регионам</h2>
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+            <tr><th class="text-left px-4 py-2">Регион</th><th class="text-right px-4 py-2">Лидов</th></tr>
+        </thead>
+        <tbody>
+            {% for r in by_region %}
+            <tr class="border-t"><td class="px-4 py-2">{{ r.name }}</td><td class="text-right px-4 py-2">{{ r.total }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Реквизиты и рапс</h2>
+    <form hx-post="/leads/{{ lead.id }}/edit" hx-target="#tab-info" hx-swap="innerHTML">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ИНН</label>
+                <input type="text" name="inn" value="{{ lead.inn or '' }}" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Руководитель</label>
+                <input type="text" name="head_name" value="{{ lead.head_name or '' }}" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Сайт</label>
+                <input type="text" name="site" value="{{ lead.site or '' }}" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Уровень</label>
+                <select name="level" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">—</option>
+                    {% for l in ["A", "B", "C"] %}
+                    <option value="{{ l }}" {% if lead.level == l %}selected{% endif %}>{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Приоритет</label>
+                <select name="priority" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">—</option>
+                    {% for p in [1, 2, 3] %}
+                    <option value="{{ p }}" {% if lead.priority == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center gap-2 mt-6">
+                <input type="checkbox" name="rapeseed_verified" id="rapeseed_verified" {% if lead.rapeseed_verified %}checked{% endif %} class="rounded">
+                <label for="rapeseed_verified" class="text-sm text-gray-700">Рапс подтверждён</label>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Объём рапса</label>
+                <input type="text" name="rapeseed_volume" value="{{ lead.rapeseed_volume or '' }}" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Тайминг уборки</label>
+                <input type="text" name="harvest_timing" value="{{ lead.harvest_timing or '' }}" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+        </div>
+        <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Комментарий для CRM</label>
+            <textarea name="general_comment" rows="3" class="w-full border rounded px-3 py-2 text-sm">{{ lead.general_comment or '' }}</textarea>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Что сделано</label>
+                <textarea name="done_summary" rows="3" class="w-full border rounded px-3 py-2 text-sm">{{ lead.done_summary or '' }}</textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Что нужно сделать</label>
+                <textarea name="todo_summary" rows="3" class="w-full border rounded px-3 py-2 text-sm">{{ lead.todo_summary or '' }}</textarea>
+            </div>
+        </div>
+        {% if lead.stage == 'lost' %}
+        <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Причина потери</label>
+            <textarea name="loss_reason" rows="2" class="w-full border rounded px-3 py-2 text-sm">{{ lead.loss_reason or '' }}</textarea>
+        </div>
+        {% endif %}
+        <div class="mt-4">
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700">Сохранить</button>
+        </div>
+    </form>
+
+    {% if users and current_user.role.value in ('supervisor', 'admin') %}
+    <div class="mt-4 border-t pt-4">
+        <h3 class="text-sm font-medium mb-2">Назначение менеджера</h3>
+        <form hx-post="/leads/{{ lead.id }}/assign" hx-target="#tab-info" hx-swap="innerHTML" class="flex gap-2">
+            <select name="manager_id" class="border rounded px-3 py-2 text-sm flex-1">
+                <option value="">Не назначен</option>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if lead.assigned_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700">Назначить</button>
+        </form>
+    </div>
+    {% endif %}
+</div>

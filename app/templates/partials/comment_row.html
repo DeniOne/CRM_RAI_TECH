@@ -1,0 +1,7 @@
+<div class="p-3 bg-gray-50 rounded border">
+    <div class="flex justify-between items-start">
+        <div class="text-sm font-medium">{{ comment.user.full_name if comment.user else '—' }}</div>
+        <div class="text-xs text-gray-400">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+    </div>
+    <div class="text-sm mt-1 whitespace-pre-wrap">{{ comment.body }}</div>
+</div>

@@ -1,0 +1,19 @@
+<div class="flex items-center justify-between p-3 bg-gray-50 rounded border" id="contact-{{ contact.id }}">
+    <div class="flex-1">
+        <div class="font-medium text-sm">{{ contact.name or '—' }}</div>
+        <div class="text-xs text-gray-500">
+            {{ contact.phone }}
+            {% if contact.position %} · {{ contact.position }}{% endif %}
+            {% if contact.email %} · {{ contact.email }}{% endif %}
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1 text-xs">
+            <input type="checkbox" {% if contact.is_decision_maker %}checked{% endif %}
+                hx-post="/leads/{{ lead_id }}/contacts/{{ contact.id }}/toggle-dm"
+                hx-target="#contact-{{ contact.id }}" hx-swap="outerHTML"
+                class="rounded">
+            ЛПР
+        </label>
+    </div>
+</div>

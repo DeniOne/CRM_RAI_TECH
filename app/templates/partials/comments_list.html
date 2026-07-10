@@ -1,0 +1,12 @@
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Комментарии</h2>
+    <div id="comments-list" class="space-y-3 mb-4">
+        {% for comment in lead.comments|sort(attribute='created_at', reverse=true) %}
+        {% include "partials/comment_row.html" %}
+        {% endfor %}
+    </div>
+    <form hx-post="/leads/{{ lead.id }}/comments" hx-target="#comments-list" hx-swap="afterbegin" class="border-t pt-4">
+        <textarea name="body" placeholder="Новый комментарий..." required rows="3" class="w-full border rounded px-3 py-2 text-sm mb-2"></textarea>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Добавить</button>
+    </form>
+</div>

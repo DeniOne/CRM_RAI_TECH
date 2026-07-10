@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.name }} — CRM RAI{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <a href="/kanban" class="text-blue-600 text-sm hover:underline">&larr; Назад к канбану</a>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-4">
+    <h1 class="text-2xl font-bold">{{ lead.name }}</h1>
+    <div class="flex gap-4 mt-2 text-sm text-gray-600 flex-wrap">
+        <span>Стадия: <strong>{{ stage_label }}</strong></span>
+        <span>Уровень: <strong>{{ lead.level or '—' }}</strong></span>
+        <span>Регион: <strong>{{ lead.region.name if lead.region else '—' }}</strong></span>
+        {% if lead.assigned_manager %}
+        <span>Менеджер: <strong>{{ lead.assigned_manager.full_name }}</strong></span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="flex border-b mb-4 gap-1 overflow-x-auto">
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600 whitespace-nowrap" data-tab="info" onclick="switchTab('info')">Информация</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="contacts" onclick="switchTab('contacts')">Контакты ({{ lead.contacts|length }})</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="log" onclick="switchTab('log')">Журнал ({{ lead.contact_logs|length }})</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="comments" onclick="switchTab('comments')">Комментарии ({{ lead.comments|length }})</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="tasks" onclick="switchTab('tasks')">Таски ({{ lead.tasks|length }})</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="documents" onclick="switchTab('documents')">Документы ({{ lead.documents|length }})</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap" data-tab="deals" onclick="switchTab('deals')">Сделки ({{ lead.deals|length }})</button>
+</div>
+
+<!-- Tab: Info -->
+<div id="tab-info" class="tab-content">
+    {% include "partials/lead_info_form.html" %}
+</div>
+
+<!-- Tab: Contacts -->
+<div id="tab-contacts" class="tab-content hidden">
+    {% include "partials/contacts_list.html" %}
+</div>
+
+<!-- Tab: Contact Log -->
+<div id="tab-log" class="tab-content hidden">
+    {% include "partials/contact_log_list.html" %}
+</div>
+
+<!-- Tab: Comments -->
+<div id="tab-comments" class="tab-content hidden">
+    {% include "partials/comments_list.html" %}
+</div>
+
+<!-- Tab: Tasks -->
+<div id="tab-tasks" class="tab-content hidden">
+    {% include "partials/tasks_list.html" %}
+</div>
+
+<!-- Tab: Documents -->
+<div id="tab-documents" class="tab-content hidden">
+    {% include "partials/documents_list.html" %}
+</div>
+
+<!-- Tab: Deals -->
+<div id="tab-deals" class="tab-content hidden">
+    {% include "partials/deals_list.html" %}
+</div>
+
+<script>
+function switchTab(name) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('border-blue-500', 'text-blue-600');
+        el.classList.add('border-transparent', 'text-gray-500');
+    });
+    document.getElementById('tab-' + name).classList.remove('hidden');
+    const btn = document.querySelector('[data-tab="' + name + '"]');
+    btn.classList.add('border-blue-500', 'text-blue-600');
+    btn.classList.remove('border-transparent', 'text-gray-500');
+}
+</script>
+{% endblock %}

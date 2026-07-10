@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+aiosqlite
+alembic
+pydantic
+pydantic-settings
+python-multipart
+jinja2
+python-docx
+docx2pdf
+openpyxl
+pandas
+itsdangerous

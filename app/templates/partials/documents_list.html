@@ -1,0 +1,34 @@
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold mb-4">Документы</h2>
+
+    <div id="documents-list" class="space-y-2 mb-4">
+        {% for doc in documents %}
+        {% include "partials/document_row.html" %}
+        {% else %}
+        <div class="text-gray-400 text-sm">Нет документов</div>
+        {% endfor %}
+    </div>
+
+    <div class="border-t pt-4">
+        <h3 class="text-sm font-medium mb-2">Сгенерировать документ</h3>
+        <form hx-post="/leads/{{ lead_id }}/documents/generate" hx-target="#tab-documents" hx-swap="innerHTML">
+            <div class="flex gap-3 items-end flex-wrap">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Шаблон</label>
+                    <select name="template_id" id="template-select"
+                        hx-get="/templates/{{ active_templates[0].id if active_templates else 0 }}/fields"
+                        hx-target="#extra-fields" hx-trigger="change"
+                        hx-include="[name='template_id']"
+                        class="border rounded px-3 py-2 text-sm">
+                        {% for t in active_templates %}
+                        <option value="{{ t.id }}">{{ t.name }} ({{ t.doc_type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="extra-fields" class="flex gap-2 flex-wrap">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Сгенерировать</button>
+            </div>
+        </form>
+    </div>
+</div>

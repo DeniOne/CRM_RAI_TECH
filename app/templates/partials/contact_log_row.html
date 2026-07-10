@@ -1,0 +1,19 @@
+<div class="p-3 bg-gray-50 rounded border">
+    <div class="flex justify-between items-start">
+        <div>
+            <span class="text-xs font-medium text-gray-500">{{ log.contact_type }}</span>
+            <span class="text-xs text-gray-400 ml-2">{{ log.contact_date.strftime('%d.%m.%Y %H:%M') }}</span>
+            {% if log.outcome %}
+            <span class="text-xs ml-2 px-1.5 rounded
+                {% if log.outcome == 'agreed' %}bg-green-100 text-green-700
+                {% elif log.outcome == 'refused' %}bg-red-100 text-red-700
+                {% elif log.outcome == 'sent_kp' %}bg-purple-100 text-purple-700
+                {% else %}bg-gray-200 text-gray-600{% endif %}">{{ log.outcome }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="text-sm mt-1">{{ log.result }}</div>
+    {% if log.next_action_date %}
+    <div class="text-xs text-blue-600 mt-1">Следующее действие: {{ log.next_action_date.strftime('%d.%m.%Y') }}</div>
+    {% endif %}
+</div>
