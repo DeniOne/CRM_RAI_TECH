@@ -10,6 +10,11 @@ async def send_to_hermes(
     role: str,
     context_lead_id: int = None,
 ) -> dict:
+    """
+    Отправляет сообщение в Hermes через OpenAI-совместимый API.
+    POST {HERMES_API_URL}/v1/chat/completions
+    Возвращает {"reply": str, "actions": [], "error": str|None}.
+    """
     if not settings.HERMES_ENABLED:
         return {
             "reply": "Агент отключён в настройках.",
@@ -17,14 +22,17 @@ async def send_to_hermes(
             "error": "disabled",
         }
 
+    # OpenAI Chat Completions формат
+    system_content = f"Ты — AI-ассистент CRM RAI. Работаешь с пользователем {user_name} (роль: {role})."
+    if context_lead_id:
+        system_content += f" Текущий контекст: работа с лидом ID {context_lead_id}."
+
     payload = {
-        "message": message,
-        "user_id": user_id,
-        "user_name": user_name,
-        "context": {
-            "role": role,
-            "current_lead_id": context_lead_id,
-        },
+        "model": "hermes-agent",
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": message},
+        ],
     }
 
     headers = {"Content-Type": "application/json"}
@@ -34,15 +42,21 @@ async def send_to_hermes(
     try:
         async with httpx.AsyncClient(timeout=settings.HERMES_TIMEOUT) as client:
             resp = await client.post(
-                f"{settings.HERMES_API_URL}/api/chat",
+                f"{settings.HERMES_API_URL}/v1/chat/completions",
                 json=payload,
                 headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()
+            # OpenAI формат: choices[0].message.content
+            reply = (
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "Пустой ответ от агента.")
+            )
             return {
-                "reply": data.get("reply", "Пустой ответ от агента."),
-                "actions": data.get("actions", []),
+                "reply": reply,
+                "actions": [],
                 "error": None,
             }
     except httpx.ConnectError:
