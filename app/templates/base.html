@@ -65,7 +65,7 @@
                     {% set role_map = {'manager': 'Менеджер', 'supervisor': 'Руководитель', 'admin': 'Админ'} %}
                     {{ role_map.get(current_user.role.value, current_user.role.value) }}
                 </div>
-                <a href="/logout" class="block mt-2 text-sm text-red-600 hover:text-red-700">Выйти</a>
+                <a href="/logout" class="block mt-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 text-center">Выйти</a>
             </div>
         </aside>
         <main class="flex-1 p-6">
