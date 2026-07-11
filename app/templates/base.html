@@ -44,10 +44,16 @@
                 <a href="/reports" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Аналитика</a>
                 <a href="/kanban?manager=all" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Все лиды</a>
                 {% endif %}
+                {% if current_user.role.value == 'admin' %}
+                <a href="/admin/users" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Пользователи</a>
+                {% endif %}
             </nav>
             <div class="pt-4 border-t border-black/10">
                 <div class="text-sm text-ink">{{ current_user.full_name }}</div>
-                <div class="text-xs text-muted">{{ current_user.role.value }}</div>
+                <div class="text-xs text-muted">
+                    {% set role_map = {'manager': 'Менеджер', 'supervisor': 'Руководитель', 'admin': 'Админ'} %}
+                    {{ role_map.get(current_user.role.value, current_user.role.value) }}
+                </div>
                 <a href="/logout" class="block mt-2 text-sm text-red-600 hover:text-red-700">Выйти</a>
             </div>
         </aside>

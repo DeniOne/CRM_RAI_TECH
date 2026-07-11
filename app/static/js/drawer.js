@@ -16,6 +16,10 @@ function openDrawer(url, title) {
             '<div class="text-lg font-medium text-ink">' + (title || '') + '</div>' +
             '<button onclick="closeDrawer()" class="text-muted hover:text-ink text-xl">&times;</button>' +
             '</div>' + html + '</div>';
+        // Обработать новые HTMX-элементы
+        if (typeof htmx !== 'undefined') {
+            htmx.process(content);
+        }
     });
 }
 

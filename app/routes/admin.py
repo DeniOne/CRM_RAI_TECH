@@ -96,7 +96,19 @@ async def users_page(
             "invites": invites,
             "role_labels": ROLE_LABELS,
             "base_url": settings.APP_BASE_URL.rstrip("/"),
+            "now": datetime.now(),
         },
+    )
+
+
+@router.get("/admin/users/invite/form", response_class=HTMLResponse)
+async def invite_form(request: Request, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await require_role("admin")(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/invite_form.html",
+        context={"current_user": user},
     )
 
 
@@ -144,6 +156,7 @@ async def create_invite(
             "invite": invite,
             "invite_url": invite_url,
             "full_name": full_name.strip(),
+            "role_labels": ROLE_LABELS,
         },
     )
 
@@ -260,6 +273,7 @@ async def reset_password(
             "current_user": user,
             "invite": invite,
             "invite_url": invite_url,
+            "role_labels": ROLE_LABELS,
         },
     )
 

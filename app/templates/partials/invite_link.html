@@ -1,0 +1,40 @@
+<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
+    <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-sm font-medium text-emerald-800">
+            {% if invite.purpose.value == 'reset' %}
+            Ссылка для сброса пароля создана
+            {% else %}
+            Приглашение создано
+            {% endif %}
+        </span>
+    </div>
+
+    <div>
+        <div class="text-xs text-muted mb-1">
+            {% if invite.purpose.value == 'reset' %}
+            Отправьте эту ссылку пользователю — действительна 1 час:
+            {% else %}
+            Отправьте эту ссылку на {{ invite.email }} — действительна 7 дней:
+            {% endif %}
+        </div>
+        <div class="flex gap-2">
+            <input type="text" id="invite-url-{{ invite.id }}" readonly value="{{ invite_url }}"
+                   class="flex-1 border border-black/10 rounded-lg px-3 py-2 text-xs text-ink bg-white font-mono">
+            <button onclick="copyInviteUrl('invite-url-{{ invite.id }}')"
+                    class="bg-ink text-white px-3 py-2 rounded-lg text-xs hover:bg-ink/90 whitespace-nowrap">
+                Копировать
+            </button>
+        </div>
+    </div>
+
+    {% if invite.purpose.value == 'invite' %}
+    <div class="text-xs text-muted">
+        Email: <strong>{{ invite.email }}</strong> ·
+        Роль: <strong>{{ role_labels[invite.role.value] }}</strong>
+        {% if full_name %}· Имя: {{ full_name }}{% endif %}
+    </div>
+    {% endif %}
+</div>

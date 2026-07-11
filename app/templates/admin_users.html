@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — CRM RAI{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <h1 class="text-2xl font-medium text-ink">Управление пользователями</h1>
+    <p class="text-sm text-muted mt-1">Создание приглашений, роли, активация, сброс пароля</p>
+</div>
+
+<!-- Список пользователей -->
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-medium text-ink">Пользователи ({{ users|length }})</h2>
+        <button onclick="openInviteForm()"
+                class="bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Пригласить
+        </button>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-xs text-muted border-b border-black/10">
+                    <th class="py-2 px-4 font-medium">Имя</th>
+                    <th class="py-2 px-4 font-medium">Email</th>
+                    <th class="py-2 px-4 font-medium">Роль</th>
+                    <th class="py-2 px-4 font-medium">Статус</th>
+                    <th class="py-2 px-4 font-medium">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="users-tbody">
+                {% for u in users %}
+                    {% include "partials/user_row.html" %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Кнопка-результат приглашения (target для htmx) -->
+<div id="invite-result" class="mb-4"></div>
+
+<!-- История приглашений -->
+{% if invites %}
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <h2 class="text-lg font-medium text-ink mb-4">Приглашения</h2>
+    <div class="space-y-2">
+        {% for inv in invites %}
+        <div class="flex items-center justify-between gap-4 py-2 border-b border-black/5 last:border-0">
+            <div class="flex-1 min-w-0">
+                <div class="text-sm text-ink">
+                    {{ inv.email }}
+                    <span class="text-xs text-muted ml-2">· {{ role_labels[inv.role.value] }}</span>
+                </div>
+                <div class="text-xs text-muted">
+                    Создано {{ inv.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    · {{ 'Сброс пароля' if inv.purpose.value == 'reset' else 'Приглашение' }}
+                </div>
+            </div>
+            <div class="shrink-0">
+                {% if inv.used_at %}
+                <span class="text-xs text-emerald-600">Использовано {{ inv.used_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                {% elif inv.expires_at and inv.expires_at < now %}
+                <span class="text-xs text-red-600">Истекло</span>
+                {% else %}
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-amber-600">Ожидает</span>
+                    <button onclick="copyInviteUrl('inv-url-{{ inv.id }}')" class="text-xs text-blue-600 hover:text-blue-700">Копировать</button>
+                    <input type="hidden" id="inv-url-{{ inv.id }}" value="{{ base_url }}/invite/{{ inv.token }}">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+function openInviteForm() {
+    openDrawer('/admin/users/invite/form', 'Новое приглашение');
+}
+
+function copyInviteUrl(inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var url = input.value || input.getAttribute('value');
+    navigator.clipboard.writeText(url).then(function() {
+        // Временная визуальная обратная связь
+        var btn = input.parentElement.querySelector('button');
+        if (btn) {
+            var orig = btn.textContent;
+            btn.textContent = '✓ Скопировано';
+            setTimeout(function() { btn.textContent = orig; }, 2000);
+        }
+    }).catch(function() {
+        // Fallback для старых браузеров
+        input.select();
+        document.execCommand('copy');
+        alert('Ссылка скопирована');
+    });
+}
+
+function toggleActive(userId) {
+    fetch('/admin/users/' + userId + '/toggle-active', { method: 'POST' })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
+            }
+            return r.text();
+        })
+        .then(function(html) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html.trim();
+            var newRow = tmp.firstElementChild;
+            var oldRow = document.getElementById('user-row-' + userId);
+            if (oldRow && newRow) { oldRow.replaceWith(newRow); }
+        })
+        .catch(function(err) { alert(err.message); });
+}
+
+function deleteUser(userId, userName) {
+    if (!confirm('Удалить пользователя «' + userName + '»?\n\nЭто действие необратимо. Если у пользователя есть связанные данные (лиды, задачи, комментарии) — удаление будет запрещено, используйте деактивацию.')) {
+        return;
+    }
+    fetch('/admin/users/' + userId + '/delete', { method: 'POST' })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка удаления'); });
+            }
+            return r.json();
+        })
+        .then(function() {
+            var row = document.getElementById('user-row-' + userId);
+            if (row) { row.remove(); }
+        })
+        .catch(function(err) { alert(err.message); });
+}
+
+function resetPassword(userId) {
+    if (!confirm('Создать ссылку для сброса пароля?\nСсылка действительна 1 час.')) {
+        return;
+    }
+    fetch('/admin/users/' + userId + '/reset-password', { method: 'POST' })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
+            }
+            return r.text();
+        })
+        .then(function(html) {
+            var result = document.getElementById('invite-result');
+            result.innerHTML = html;
+            result.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        })
+        .catch(function(err) { alert(err.message); });
+}
+</script>
+{% endblock %}
