@@ -505,16 +505,15 @@ async def create_task(
             context_lead_id=lead_id,
         )
 
-    # Перезагрузить задачи для отображения
-    result = await session.execute(
-        select(Lead).where(Lead.id == lead_id).options(selectinload(Lead.tasks))
-    )
-    lead = result.scalar_one_or_none()
+    # Рассчитать is_overdue для новой задачи
+    now = datetime.now()
+    task.is_overdue = task.due_date and task.due_date < now and task.status in ("pending", "in_progress")
+    task.lead = lead
 
     return templates.TemplateResponse(
         request=request,
-        name="partials/tasks_list.html",
-        context={"current_user": user, "lead": lead},
+        name="partials/task_row.html",
+        context={"current_user": user, "task": task},
     )
 
 

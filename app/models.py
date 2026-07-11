@@ -14,6 +14,11 @@ class UserRole(str, enum.Enum):
     admin = "admin"
 
 
+class InvitePurpose(str, enum.Enum):
+    invite = "invite"
+    reset = "reset"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -219,3 +224,17 @@ class AgentMessage(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     user: Mapped["User"] = relationship()
+
+
+class Invite(Base):
+    __tablename__ = "invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.manager)
+    purpose: Mapped[InvitePurpose] = mapped_column(SAEnum(InvitePurpose), default=InvitePurpose.invite)
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column()
+    used_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

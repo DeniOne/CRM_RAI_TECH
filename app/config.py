@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     DADATA_SECRET_KEY: str = ""
     DADATA_TIMEOUT: int = 15
 
+    APP_BASE_URL: str = "http://localhost:8000"
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     STORAGE_DIR: Path = BASE_DIR / "storage"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
