@@ -1,0 +1,12 @@
+{# Чип задачи для верхнего ряда менеджера (цвет = статус). #}
+{# Контекст: t (Task). #}
+{% set cls = {
+    'pending': 'ticker-pending',
+    'in_progress': 'ticker-progress',
+    'done': 'ticker-done',
+    'cancelled': 'ticker-cancelled'
+}.get(t.status, 'ticker-pending') %}
+<span class="ticker-item {{ cls }}" title="{{ t.title }}">
+    {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+    {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
+</span>

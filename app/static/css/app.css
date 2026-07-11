@@ -46,5 +46,119 @@ body {
 
 .view-mode .edit-field { display: none; }
 .edit-mode .view-field { display: none; }
+
+/* ===== Task Ticker — бегущая строка задач ===== */
+
+/* Отступ снизу, чтобы фиксированный тикер не перекрывал контент */
+body.has-ticker main {
+    padding-bottom: 96px;
+}
+
+.ticker-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30; /* ниже drawer-overlay (z-40) и drawer (z-50) */
+    background: var(--canvas);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ticker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    height: 38px;
+    overflow: hidden;
+}
+
+.ticker-row-top { border-bottom: 1px solid var(--border); }
+
+/* Нижний ряд — просроченные (крупнее, красный фон) */
+.ticker-row-overdue {
+    background: #dc2626; /* red-600 */
+    height: 46px;
+    padding: 6px 14px;
+}
+.ticker-row-overdue .ticker-window { filter: brightness(1.05); }
+
+.ticker-label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding-right: 8px;
+    border-right: 1px solid var(--border);
+}
+.ticker-label-overdue {
+    color: #fff;
+    border-right-color: rgba(255, 255, 255, 0.4);
+}
+
+.ticker-window {
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.ticker-track {
+    display: inline-flex;
+    gap: 12px;
+    align-items: center;
+    will-change: transform;
+}
+
+.ticker-item {
+    flex: 0 0 auto;
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    font-size: 12.5px;
+    line-height: 1.4;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Статусные цвета (Tailwind-палитра, согласовано с каноном проекта) */
+.ticker-pending   { background: #dbeafe; color: #1e40af; border-color: #93c5fd; } /* синий  */
+.ticker-progress  { background: #fef3c7; color: #92400e; border-color: #fcd34d; } /* жёлтый */
+.ticker-done      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; } /* зелёный*/
+.ticker-cancelled { background: #78350f; color: #fef3c7; border-color: #78350f; } /* коричневый */
+.ticker-tomorrow  { background: #e2e8f0; color: var(--ink); border-color: #cbd5e1; } /* завтра — нейтрально-чёрный */
+
+/* Просроченные чипы (нижний ряд менеджера) — крупнее, белый на красном */
+.ticker-overdue {
+    background: #fff;
+    color: #b91c1c;
+    border-color: #fecaca;
+    font-weight: 600;
+    font-size: 14px;
+}
+/* Просроченная задача у руководителя — красная рамка вокруг статусного чипа */
+.ticker-overdue-border {
+    box-shadow: 0 0 0 2px #dc2626;
+}
+
+.ticker-sep {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 4px 0 8px;
+}
+
+.ticker-empty {
+    font-size: 12.5px;
+    color: var(--muted);
+    font-style: italic;
+}
+
 # Auto-update test Sat Jul 11 12:34:57 RTZ 2026
 /* webhook test Sat Jul 11 12:43:39 RTZ 2026 */

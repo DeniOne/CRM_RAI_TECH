@@ -28,7 +28,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="/static/css/app.css">
 </head>
-<body class="bg-canvas min-h-screen font-sans">
+<body class="bg-canvas min-h-screen font-sans {% if current_user %}has-ticker{% endif %}">
     {% if current_user %}
     <div class="flex">
         <aside class="w-64 bg-white border-r border-black/10 min-h-screen p-4 flex flex-col">
@@ -67,11 +67,15 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <div id="task-ticker"
+         hx-get="/api/ticker" hx-trigger="load" hx-swap="innerHTML"
+         class="ticker-bar"></div>
     <div id="drawer-overlay" class="fixed inset-0 bg-black/20 z-40 hidden" onclick="closeDrawer()"></div>
     <div id="drawer" class="fixed inset-y-0 right-0 w-96 bg-white border-l border-black/10 z-50 transform translate-x-full transition-transform duration-200 overflow-y-auto">
         <div id="drawer-content"></div>
     </div>
     <script src="/static/js/drawer.js"></script>
+    <script src="/static/js/ticker.js"></script>
     {% else %}
     {% block fullpage %}{% endblock %}
     {% endif %}

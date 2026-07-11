@@ -1,0 +1,76 @@
+{# Бегущая строка задач. Цвет чипа = статус. #}
+{# Менеджер: два ряда (сегодня+завтра / просроченные). Руководитель: один ряд. #}
+
+{% if is_manager %}
+
+{# ---- ВЕРХНИЙ РЯД: сегодня + завтра ---- #}
+<div class="ticker-row ticker-row-top">
+    <span class="ticker-label">Сегодня</span>
+    <div class="ticker-window">
+        <div class="ticker-track">
+            {% for t in today_tasks %}
+            {% include "partials/_ticker_chip.html" %}
+            {% endfor %}
+            {% if tomorrow_tasks %}
+            <span class="ticker-sep">Завтра</span>
+            {% for t in tomorrow_tasks %}
+            <span class="ticker-item ticker-tomorrow" title="Завтра · {{ t.title }}">
+                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
+            </span>
+            {% endfor %}
+            {% endif %}
+            {% if not today_tasks and not tomorrow_tasks %}
+            <span class="ticker-empty">Задач на сегодня нет</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ---- НИЖНИЙ РЯД: просроченные (красные, крупнее, мигают) ---- #}
+{% if overdue_tasks %}
+<div class="ticker-row ticker-row-overdue animate-pulse">
+    <span class="ticker-label ticker-label-overdue">⚠ Просрочено</span>
+    <div class="ticker-window">
+        <div class="ticker-track">
+            {% for t in overdue_tasks %}
+            <span class="ticker-item ticker-overdue" title="Просрочена · {{ t.title }}">
+                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                {% if t.due_date %} · была {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+
+{# ---- РУКОВОДИТЕЛЬ: один ряд, все задачи всех менеджеров ---- #}
+<div class="ticker-row ticker-row-top">
+    <span class="ticker-label">Все задачи</span>
+    <div class="ticker-window">
+        <div class="ticker-track">
+            {% if all_tasks %}
+            {% for t in all_tasks %}
+            {% set cls = {
+                'pending': 'ticker-pending',
+                'in_progress': 'ticker-progress',
+                'done': 'ticker-done',
+                'cancelled': 'ticker-cancelled'
+            }.get(t.status, 'ticker-pending') %}
+            <span class="ticker-item {{ cls }} {% if t.is_overdue %}ticker-overdue-border{% endif %}"
+                  title="{{ t.assignee_name }} · {{ t.title }}">
+                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                · <b>{{ t.assignee_name }}</b>
+                {% if t.due_date %} · {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
+            </span>
+            {% endfor %}
+            {% else %}
+            <span class="ticker-empty">Задач нет</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endif %}
