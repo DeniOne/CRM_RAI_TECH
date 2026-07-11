@@ -414,6 +414,31 @@ async def deal_form(request: Request, lead_id: int, session: AsyncSession = Depe
     )
 
 
+def _clean_dadata_query(raw: str) -> str:
+    """
+    Очищает название контрагента из сырого лида перед отправкой в DaData.
+    Убирает кавычки, организационно-правовые формы (ООО, АО, ПАО...),
+    лишние пробелы и пунктуацию — оставляет «чистое» название для поиска.
+    """
+    import re
+    q = raw.strip()
+
+    # Убираем organizational-legal forms (ООО, АО, ПАО, ИП, ЗАО, ОАО, НКО и т.д.)
+    opf_pattern = r'\b(ООО|ОАО|ЗАО|ПАО|АО|ИП|НКО|ОП|ФГУП|ГУП|МУП|ФГБОУ|ГБОУ|НО|АНО)\b'
+    q = re.sub(opf_pattern, '', q, flags=re.IGNORECASE)
+
+    # Убираем все виды кавычек
+    q = re.sub(r'["\'«»„"‟‟”’"]', '', q)
+
+    # Убираем лишнюю пунктуацию в начале/конце (но сохраняем дефисы и пробелы внутри)
+    q = q.strip(' \t\-—–,.;:()[]{}|/\\')
+
+    # Схлопываем множественные пробелы
+    q = re.sub(r'\s+', ' ', q).strip()
+
+    return q
+
+
 @router.get("/api/leads/{lead_id}/dadata/search")
 async def dadata_search(
     request: Request,
@@ -426,20 +451,37 @@ async def dadata_search(
     if not user:
         raise HTTPException(status_code=401)
 
-    query = q.strip()
-    if not query:
+    raw = q.strip()
+    if not raw:
         return {"results": [], "error": "Пустой запрос"}
 
     # Если запрос — число из 10/12 цифр, ищем по ИНН напрямую
-    digits = query.replace(" ", "").replace("-", "")
+    digits = raw.replace(" ", "").replace("-", "")
     if digits.isdigit() and len(digits) in (10, 12):
         result = await find_party_by_inn(digits)
         if result["result"]:
             return {"results": [result["result"]], "error": None}
         return {"results": [], "error": result["error"]}
 
+    # Очищаем запрос от кавычек, ОПФ, мусора
+    query = _clean_dadata_query(raw)
+    if not query:
+        return {"results": [], "error": "После очистки запрос пуст"}
+
+    # Основной поиск по очищенному названию
     result = await suggest_party(query)
-    return {"results": result["results"], "error": result["error"]}
+    if result["results"]:
+        return {"results": result["results"], "error": None, "query": query}
+
+    # Fallback: если ничего не нашлось — пробуем по первому слову
+    # (помогает для "Грейнус Агро" → найти по "Грейнус")
+    parts = query.split()
+    if len(parts) > 1 and len(parts[0]) >= 4:
+        result_fw = await suggest_party(parts[0])
+        if result_fw["results"]:
+            return {"results": result_fw["results"], "error": None, "query": query}
+
+    return {"results": [], "error": result["error"], "query": query}
 
 
 @router.post("/api/leads/{lead_id}/dadata/apply")

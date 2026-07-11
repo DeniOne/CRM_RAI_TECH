@@ -220,7 +220,18 @@ function dadataSearch() {
             }
             var results = data.results || [];
             if (results.length === 0) {
-                resultsEl.innerHTML = '<div class="text-xs text-muted">Ничего не найдено</div>';
+                // Подсказка: предложить альтернативные варианты запроса
+                var cleaned = data.query || q;
+                var alternatives = buildSearchAlternatives(cleaned);
+                var html = '<div class="text-xs text-muted">Ничего не найдено по запросу «' + escapeHtml(q) + '».</div>';
+                html += '<div class="text-xs text-muted mt-1">Возможно, название в сыром лиде искажено. Попробуйте:</div>';
+                html += '<div class="flex flex-wrap gap-1.5 mt-2">';
+                alternatives.forEach(function(alt) {
+                    html += '<button onclick=\"document.getElementById(\'dadata-query\').value=' + JSON.stringify(alt) + ';dadataSearch();\" class=\"bg-white border border-black/10 px-2 py-1 rounded text-xs text-ink hover:bg-slate-100\">' + escapeHtml(alt) + '</button>';
+                });
+                html += '</div>';
+                html += '<div class=\"text-xs text-muted mt-2\">Или введите название вручную и нажмите «Найти».</div>';
+                resultsEl.innerHTML = html;
                 return;
             }
             resultsEl.innerHTML = '';
@@ -304,5 +315,37 @@ function escapeHtml(t) {
     var d = document.createElement('div');
     d.textContent = t;
     return d.innerHTML;
+}
+
+/**
+ * Генерирует альтернативные варианты запроса, когда точный поиск ничего не нашёл.
+ * Например: "ГрейнусАгро" → ["Грейнус", "Агро", "Грейнус Агро"]
+ *           "Иванов и партнёры" → ["Иванов", "партнёры"]
+ */
+function buildSearchAlternatives(query) {
+    var alts = [];
+
+    // 1. Сплит camelCase: "ГрейнусАгро" → ["Грейнус", "Агро"]
+    var camelParts = query.match(/[А-ЯЁA-Z][а-яёa-z]*/g);
+    if (camelParts && camelParts.length > 1) {
+        alts.push(camelParts.join(' '));          // "Грейнус Агро"
+        camelParts.forEach(function(p) {
+            if (p.length >= 4) alts.push(p);      // "Грейнус", "Агро"
+        });
+    }
+
+    // 2. Каждое слово из составного названия (длина ≥ 4)
+    var words = query.split(/[\s\-]+/).filter(function(w) { return w.length >= 4; });
+    words.forEach(function(w) {
+        if (alts.indexOf(w) === -1) alts.push(w);
+    });
+
+    // 3. Если ничего не вышло — первые 5 символов
+    if (alts.length === 0 && query.length >= 5) {
+        alts.push(query.substring(0, 5));
+    }
+
+    // Уникальные, не равные исходному, максимум 4
+    return alts.filter(function(a, i) { return alts.indexOf(a) === i && a !== query; }).slice(0, 4);
 }
 </script>
