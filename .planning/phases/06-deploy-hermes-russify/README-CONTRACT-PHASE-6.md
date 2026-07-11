@@ -80,4 +80,5 @@
 3. **Деплой:** ssh rai-dev → git clone → docker compose up -d --build
 4. **Данные:** копирование xlsx на сервер, импорт через `docker compose exec`
 5. **Тест:** http://161.35.89.51:8000 — CRM доступна извне
+   *(историческая запись фазы 6; с 12.07.2026 прод-адрес — https://raitechnology.online, порт 8000 закрыт)*
 6. **Hermes:** когда gateway поднят на 8080 — тест интеграции вживую

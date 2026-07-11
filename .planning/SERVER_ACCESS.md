@@ -46,7 +46,8 @@ ssh rai-dev
 ### Контейнер
 - **Имя:** `crm-rai-dev`
 - **Порт:** `8000` (host network mode)
-- **Доступ:** http://161.35.89.51:8000
+- **Домен:** https://raitechnology.online
+- **Доступ:** через nginx (HTTP→HTTPS), порт 8000 закрыт в ufw
 
 ### Команды
 
@@ -165,7 +166,7 @@ ssh rai-dev "cd /srv/crm-rai && docker compose restart crm"
 
 ### Проверить доступность
 ```bash
-curl -s -o /dev/null -w '%{http_code}' http://161.35.89.51:8000/
+curl -s -o /dev/null -w '%{http_code}' https://raitechnology.online/login
 ```
 
 ## Важно
