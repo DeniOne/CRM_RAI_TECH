@@ -1,4 +1,5 @@
-{# Чип задачи для верхнего ряда менеджера (цвет = статус). #}
+{# Чип задачи для верхнего ряда менеджера (цвет = статус).
+   Кликабелен если есть привязанный лид — переход в карточку. #}
 {# Контекст: t (Task). #}
 {% set cls = {
     'pending': 'ticker-pending',
@@ -6,7 +7,14 @@
     'done': 'ticker-done',
     'cancelled': 'ticker-cancelled'
 }.get(t.status, 'ticker-pending') %}
+{% if t.lead %}
+<a href="/leads/{{ t.lead.id }}" class="ticker-item ticker-clickable {{ cls }}" title="{{ t.title }} — открыть карточку">
+    {{ t.title }} · {{ t.lead.name }}
+    {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
+</a>
+{% else %}
 <span class="ticker-item {{ cls }}" title="{{ t.title }}">
-    {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+    {{ t.title }}
     {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
 </span>
+{% endif %}

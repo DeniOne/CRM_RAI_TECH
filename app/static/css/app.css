@@ -160,5 +160,16 @@ body.has-ticker main {
     font-style: italic;
 }
 
+/* Кликабельные чипы — переход в карточку лида */
+a.ticker-item {
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+a.ticker-item:hover {
+    filter: brightness(0.92);
+    transform: translateY(-1px);
+}
+
 # Auto-update test Sat Jul 11 12:34:57 RTZ 2026
 /* webhook test Sat Jul 11 12:43:39 RTZ 2026 */

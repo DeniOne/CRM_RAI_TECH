@@ -14,10 +14,17 @@
             {% if tomorrow_tasks %}
             <span class="ticker-sep">Завтра</span>
             {% for t in tomorrow_tasks %}
+            {% if t.lead %}
+            <a href="/leads/{{ t.lead.id }}" class="ticker-item ticker-clickable ticker-tomorrow" title="Завтра · {{ t.title }} — открыть карточку">
+                {{ t.title }} · {{ t.lead.name }}
+                {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
+            </a>
+            {% else %}
             <span class="ticker-item ticker-tomorrow" title="Завтра · {{ t.title }}">
-                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                {{ t.title }}
                 {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
             </span>
+            {% endif %}
             {% endfor %}
             {% endif %}
             {% if not today_tasks and not tomorrow_tasks %}
@@ -34,10 +41,17 @@
     <div class="ticker-window">
         <div class="ticker-track">
             {% for t in overdue_tasks %}
+            {% if t.lead %}
+            <a href="/leads/{{ t.lead.id }}" class="ticker-item ticker-clickable ticker-overdue" title="Просрочена · {{ t.title }} — открыть карточку">
+                {{ t.title }} · {{ t.lead.name }}
+                {% if t.due_date %} · была {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
+            </a>
+            {% else %}
             <span class="ticker-item ticker-overdue" title="Просрочена · {{ t.title }}">
-                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                {{ t.title }}
                 {% if t.due_date %} · была {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
             </span>
+            {% endif %}
             {% endfor %}
         </div>
     </div>
@@ -59,12 +73,21 @@
                 'done': 'ticker-done',
                 'cancelled': 'ticker-cancelled'
             }.get(t.status, 'ticker-pending') %}
+            {% if t.lead %}
+            <a href="/leads/{{ t.lead.id }}" class="ticker-item ticker-clickable {{ cls }} {% if t.is_overdue %}ticker-overdue-border{% endif %}"
+               title="{{ t.assignee_name }} · {{ t.title }} — открыть карточку">
+                {{ t.title }} · {{ t.lead.name }}
+                · <b>{{ t.assignee_name }}</b>
+                {% if t.due_date %} · {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
+            </a>
+            {% else %}
             <span class="ticker-item {{ cls }} {% if t.is_overdue %}ticker-overdue-border{% endif %}"
                   title="{{ t.assignee_name }} · {{ t.title }}">
-                {{ t.title }}{% if t.lead %} · {{ t.lead.name }}{% endif %}
+                {{ t.title }}
                 · <b>{{ t.assignee_name }}</b>
                 {% if t.due_date %} · {{ t.due_date.strftime('%d.%m %H:%M') }}{% endif %}
             </span>
+            {% endif %}
             {% endfor %}
             {% else %}
             <span class="ticker-empty">Задач нет</span>
