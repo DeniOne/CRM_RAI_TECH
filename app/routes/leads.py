@@ -135,6 +135,32 @@ async def api_change_stage(
         raise HTTPException(status_code=422, detail={"errors": errors})
 
 
+@router.post("/api/leads/{lead_id}/rename")
+async def api_rename_lead(
+    request: Request,
+    lead_id: int,
+    name: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Переименование контрагента прямо в шапке карточки."""
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    clean_name = name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=422, detail="Название не может быть пустым")
+
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+
+    lead.name = clean_name
+    await session.commit()
+    return {"ok": True, "name": lead.name}
+
+
 @router.post("/leads/{lead_id}/edit", response_class=HTMLResponse)
 async def lead_edit(
     request: Request,
