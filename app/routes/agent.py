@@ -55,12 +55,17 @@ async def agent_send(
     request: Request,
     message: str = Form(...),
     context_lead_id: int = Form(None),
+    search_mode: str = Form("crm"),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
     user = await get_current_user(request, session)
     if not user:
         raise HTTPException(status_code=401)
+
+    # Защита от некорректных значений — только два режима.
+    if search_mode not in ("crm", "internet"):
+        search_mode = "crm"
 
     user_msg = AgentMessage(
         user_id=user.id,
@@ -77,6 +82,7 @@ async def agent_send(
         user_name=user.full_name,
         role=user.role.value,
         context_lead_id=context_lead_id,
+        search_mode=search_mode,
     )
 
     assistant_msg = AgentMessage(

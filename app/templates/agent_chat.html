@@ -33,8 +33,20 @@
         {% endfor %}
     </div>
 
+    <div class="flex gap-2 mb-3">
+        <button type="button" id="mode-crm" onclick="setMode('crm')"
+                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            🔎 Поиск в CRM
+        </button>
+        <button type="button" id="mode-internet" onclick="setMode('internet')"
+                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            🌐 Поиск в Internet
+        </button>
+    </div>
+
     <form id="chat-form" class="flex gap-2 items-end">
         <input type="hidden" id="ctx-lead-id" name="context_lead_id" value="{{ prefill_lead_id or '' }}">
+        <input type="hidden" id="search-mode" name="search_mode" value="crm">
         <textarea id="message-input" name="message" required rows="1"
                placeholder="Напишите сообщение агенту..."
                class="flex-1 border border-black/10 rounded-lg px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20 resize-none"
@@ -47,16 +59,27 @@
         Сообщение предзаполнено из карточки контрагента. Отправьте как есть или дополните перед отправкой.
     </div>
     {% endif %}
-
-    <div class="mt-4 flex flex-wrap gap-2">
-        <button onclick="setMessage('Найди клиентов уровня A')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Найти клиентов</button>
-        <button onclick="setMessage('Какие у меня задачи?')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Мои задачи</button>
-        <button onclick="setMessage('Покажи воронку')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Воронка</button>
-    </div>
 </div>
 
 <script>
 function setMessage(text){var i=document.getElementById('message-input');i.value=text;i.focus();autoResize(i);}
+function setMode(mode){
+    var crm=document.getElementById('mode-crm');
+    var net=document.getElementById('mode-internet');
+    var hidden=document.getElementById('search-mode');
+    var activeCls='bg-ink text-white';
+    var idleCls='bg-white border border-black/10 text-muted hover:text-ink hover:bg-slate-50';
+    if(mode==='internet'){
+        net.className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors '+activeCls;
+        crm.className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors '+idleCls;
+    }else{
+        crm.className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors '+activeCls;
+        net.className='flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors '+idleCls;
+        mode='crm';
+    }
+    hidden.value=mode;
+    try{localStorage.setItem('agent_search_mode',mode);}catch(e){}
+}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}
 function scrollToBottom(){var h=document.getElementById('chat-history');h.scrollTop=h.scrollHeight;}
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
@@ -87,7 +110,7 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     input.value='';input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');autoResize(input);
 
     try{
-        var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id',ctxLeadId||'');
+        var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id',ctxLeadId||'');fd.append('search_mode',document.getElementById('search-mode').value);
         var resp=await fetch('/agent/send',{method:'POST',body:fd});
         var html=await resp.text();
         var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
@@ -106,6 +129,11 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
 
 // При загрузке: подгоняем высоту textarea, фокусируем, скроллим историю вниз
 (function(){
+    // Восстановление режима поиска из localStorage (дефолт — CRM)
+    var savedMode='crm';
+    try{savedMode=localStorage.getItem('agent_search_mode')||'crm';}catch(e){}
+    setMode(savedMode);
+
     var input=document.getElementById('message-input');
     if(input.value){autoResize(input);}
     var len=input.value.length;input.focus();if(input.setSelectionRange){input.setSelectionRange(len,len);}
