@@ -1,51 +1,77 @@
-/* Бегущая строка задач — клиентская карусель.
- * Пауза 3.5с на окно из 3 чипов, затем сдвиг на 1 позицию вправо-налево,
- * зациклено. Данные статичны (грузятся разово через htmx при загрузке страницы).
+/* Бегущая строка задач.
+ * Загрузка: явный fetch при готовности DOM (надёжнее htmx hx-trigger=load,
+ * который не всегда срабатывает на элементах вне основного прохода парсинга).
+ * Карусель: пауза 3.5с на окно из 3 чипов, сдвиг на 1 вправо-налево, зациклено.
  */
 (function () {
     "use strict";
 
-    const PAUSE_MS = 3500;
-    const SHIFT_MS = 500;
-    const VISIBLE = 3; // сколько чипов видно одновременно
+    var PAUSE_MS = 3500;
+    var SHIFT_MS = 500;
+    var VISIBLE = 3;
 
+    /* ---- Загрузка содержимого тикера ---- */
+    function loadTicker() {
+        var bar = document.getElementById("task-ticker");
+        if (!bar || bar.dataset.loaded) return;
+
+        fetch("/api/ticker", { headers: { "HX-Request": "true" }, credentials: "same-origin" })
+            .then(function (r) {
+                if (!r.ok) throw new Error("ticker HTTP " + r.status);
+                return r.text();
+            })
+            .then(function (html) {
+                bar.innerHTML = html;
+                bar.dataset.loaded = "1";
+                initAll(bar);
+            })
+            .catch(function (e) {
+                // Тихо: тикер не критичен, не ломаем страницу.
+                bar.dataset.loaded = "error";
+            });
+    }
+
+    /* ---- Карусель ---- */
     function initTrack(window) {
         if (!window || window.dataset.tickerReady) return;
-        const track = window.querySelector(".ticker-track");
+        var track = window.querySelector(".ticker-track");
         if (!track) return;
-        const items = Array.from(track.querySelectorAll(".ticker-item"));
+        var items = Array.prototype.slice.call(track.querySelectorAll(".ticker-item"));
         if (items.length === 0) {
             window.dataset.tickerReady = "1";
             return;
         }
         if (items.length <= VISIBLE) {
-            // Места хватает — карусель не нужна, показываем статично.
+            // Места хватает — показываем статично, без карусели.
             window.dataset.tickerReady = "1";
             return;
         }
 
-        // Клонируем первые VISIBLE элементов в конец для бесшовного зацикливания.
-        for (let i = 0; i < VISIBLE; i++) {
+        // Клонируем первые VISIBLE элементов для бесшовного зацикливания.
+        for (var i = 0; i < VISIBLE; i++) {
             track.appendChild(items[i].cloneNode(true));
         }
 
-        let pos = 0;
-        let itemWidth = items[0].getBoundingClientRect().width
-            + parseFloat(getComputedStyle(track).gap || "0") || 0;
-        if (itemWidth <= 0) itemWidth = 200; // запас на случай скрытого рендера
+        var pos = 0;
+        var items0 = items[0];
+        var gap = parseFloat(getComputedStyle(track).gap || "0") || 0;
+
+        function itemWidth() {
+            var w = items0.getBoundingClientRect().width + gap;
+            return w > 0 ? w : 200;
+        }
 
         function step() {
             pos++;
+            var w = itemWidth();
             track.style.transition = "transform " + SHIFT_MS + "ms ease";
-            track.style.transform = "translateX(-" + (pos * itemWidth) + "px)";
+            track.style.transform = "translateX(-" + (pos * w) + "px)";
 
             if (pos >= items.length) {
                 setTimeout(function () {
                     track.style.transition = "none";
                     track.style.transform = "translateX(0)";
                     pos = 0;
-                    itemWidth = items[0].getBoundingClientRect().width
-                        + parseFloat(getComputedStyle(track).gap || "0") || 200;
                 }, SHIFT_MS + 20);
             }
             setTimeout(step, PAUSE_MS);
@@ -56,32 +82,17 @@
     }
 
     function initAll(scope) {
-        const root = scope || document;
-        root.querySelectorAll(".ticker-window").forEach(initTrack);
+        var root = scope || document;
+        var windows = root.querySelectorAll(".ticker-window");
+        for (var i = 0; i < windows.length; i++) {
+            initTrack(windows[i]);
+        }
     }
 
-    // Запуск после готовности DOM.
+    /* ---- Запуск ---- */
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { initAll(); });
+        document.addEventListener("DOMContentLoaded", loadTicker);
     } else {
-        initAll();
+        loadTicker();
     }
-
-    // htmx подгрузил partial тикера — переинициализируем треки.
-    // Важно: событие htmx стреляет на document, НЕ на body.
-    document.addEventListener("htmx:afterSwap", function (e) {
-        const target = e.detail && e.detail.target;
-        if (target && (target.id === "task-ticker" || target.querySelector(".ticker-window"))) {
-            initAll(target.id === "task-ticker" ? target : target.parentElement);
-        }
-    });
-
-    // Запасной запуск: если htmx по какой-то причине не стрельнул afterSwap
-    // (или тикер отрисован сервером инлайн), попробуем через 2с.
-    setTimeout(function () {
-        const bar = document.getElementById("task-ticker");
-        if (bar && bar.querySelector(".ticker-window") && !bar.querySelector('[data-ticker-ready]')) {
-            initAll(bar);
-        }
-    }, 2000);
 })();

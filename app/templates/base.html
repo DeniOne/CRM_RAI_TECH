@@ -67,9 +67,7 @@
             {% block content %}{% endblock %}
         </main>
     </div>
-    <div id="task-ticker"
-         hx-get="/api/ticker" hx-trigger="load" hx-swap="innerHTML"
-         class="ticker-bar"></div>
+    <div id="task-ticker" class="ticker-bar"></div>
     <div id="drawer-overlay" class="fixed inset-0 bg-black/20 z-40 hidden" onclick="closeDrawer()"></div>
     <div id="drawer" class="fixed inset-y-0 right-0 w-96 bg-white border-l border-black/10 z-50 transform translate-x-full transition-transform duration-200 overflow-y-auto">
         <div id="drawer-content"></div>
