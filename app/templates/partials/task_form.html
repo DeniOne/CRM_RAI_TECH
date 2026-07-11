@@ -1,0 +1,33 @@
+<form hx-post="/leads/{{ lead_id }}/tasks" hx-target="#tasks-list" hx-swap="beforeend"
+      hx-on::after-request="closeDrawer()">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Название задачи</label>
+            <input type="text" name="title" required placeholder="Перезвонить клиенту"
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Описание</label>
+            <textarea name="description" rows="3" placeholder="Детали задачи..."
+                      class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink"></textarea>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Срок выполнения</label>
+            <input type="datetime-local" name="due_date"
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Приоритет</label>
+            <select name="priority" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                <option value="1">Высокий</option>
+                <option value="2" selected>Средний</option>
+                <option value="3">Низкий</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <input type="checkbox" name="notify_hermes" id="notify_hermes" checked class="rounded">
+            <label for="notify_hermes" class="text-sm text-ink">Уведомить агента Hermes</label>
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Создать задачу</button>
+    </div>
+</form>

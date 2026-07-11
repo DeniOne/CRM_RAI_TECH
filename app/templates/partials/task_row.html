@@ -1,13 +1,23 @@
 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-black/10 {% if task.is_overdue %}border-l-4 border-amber-600{% endif %}">
-    <div>
+    <div class="flex-1">
         <div class="font-medium text-sm text-ink">{{ task.title }}</div>
-        <div class="text-xs text-muted">
-            {{ task.due_date.strftime('%d.%m.%Y') if task.due_date else 'без срока' }}
+        {% if task.description %}
+        <div class="text-xs text-muted mt-1">{{ task.description }}</div>
+        {% endif %}
+        <div class="text-xs text-muted mt-1">
+            {% if task.due_date %}
+            <span class="{% if task.is_overdue %}text-amber-600 font-medium{% endif %}">
+                {{ task.due_date.strftime('%d.%m.%Y %H:%M') }}
+            </span>
+            {% else %}
+            без срока
+            {% endif %}
             {% if task.lead %} · <a href="/leads/{{ task.lead.id }}" class="text-blue-500 hover:underline">{{ task.lead.name }}</a>{% endif %}
+            {% if task.priority == 1 %} · <span class="text-red-600">Высокий</span>{% elif task.priority == 3 %} · <span class="text-muted">Низкий</span>{% endif %}
         </div>
     </div>
     <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="closest div" hx-swap="outerHTML"
-            name="status" class="text-sm border border-black/10 rounded-lg px-2 py-1 text-ink bg-white">
+            name="status" class="text-sm border border-black/10 rounded-lg px-2 py-1 text-ink bg-white ml-3">
         <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
         <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
         <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>

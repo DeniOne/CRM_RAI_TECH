@@ -440,6 +440,84 @@ async def deal_form(request: Request, lead_id: int, session: AsyncSession = Depe
     )
 
 
+@router.get("/leads/{lead_id}/tasks/form", response_class=HTMLResponse)
+async def task_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/task_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )
+
+
+@router.post("/leads/{lead_id}/tasks", response_class=HTMLResponse)
+async def create_task(
+    request: Request,
+    lead_id: int,
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+    priority: int = Form(2),
+    notify_hermes: bool = Form(False),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    from app.services.hermes_service import send_to_hermes
+    user = await get_current_user(request, session)
+
+    lead_result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = lead_result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404)
+
+    due_dt = None
+    if due_date:
+        try:
+            due_dt = datetime.strptime(due_date, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            pass
+
+    task = Task(
+        lead_id=lead_id,
+        assigned_to=user.id,
+        created_by=user.id,
+        title=title,
+        description=description or None,
+        due_date=due_dt,
+        priority=priority,
+        status="pending",
+    )
+    session.add(task)
+    await session.commit()
+
+    # Уведомить Hermes о новой задаче
+    if notify_hermes:
+        hermes_msg = f"Создана задача: {title}"
+        if due_dt:
+            hermes_msg += f" (срок: {due_dt.strftime('%d.%m.%Y %H:%M')})"
+        hermes_msg += f" для лида {lead.name}"
+        await send_to_hermes(
+            message=f"Напомни мне: {hermes_msg}",
+            user_id=user.id,
+            user_name=user.full_name,
+            role=user.role.value,
+            context_lead_id=lead_id,
+        )
+
+    # Перезагрузить задачи для отображения
+    result = await session.execute(
+        select(Lead).where(Lead.id == lead_id).options(selectinload(Lead.tasks))
+    )
+    lead = result.scalar_one_or_none()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/tasks_list.html",
+        context={"current_user": user, "lead": lead},
+    )
+
+
 def _clean_dadata_query(raw: str) -> str:
     """
     Очищает название контрагента из сырого лида перед отправкой в DaData.
