@@ -3,40 +3,63 @@
 {% block content %}
 <div class="flex justify-between items-center mb-4">
     <h1 class="text-2xl font-medium text-ink">Канбан</h1>
+    <div class="flex gap-2">
+        {% if current_user.role.value in ('supervisor', 'admin') %}
+        <button onclick="openDrawer('/leads/import/form', 'Импорт из xlsx')"
+                class="bg-white border border-black/10 px-4 py-2 rounded-lg text-sm text-ink hover:bg-slate-50 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            Импорт xlsx
+        </button>
+        {% endif %}
+        <button onclick="openDrawer('/leads/form', 'Новый лид')"
+                class="bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Добавить лид
+        </button>
+    </div>
 </div>
 
-<form id="kanban-filters" class="flex gap-3 mb-4 flex-wrap" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change" hx-swap="innerHTML">
-    <select name="region" class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+<div id="kanban-filters" class="flex gap-3 mb-4 flex-wrap">
+    <select name="region" hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-include="#kanban-filters"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все регионы</option>
         {% for r in regions %}
         <option value="{{ r.id }}" {% if region_id == r.id %}selected{% endif %}>{{ r.name }}</option>
         {% endfor %}
     </select>
-    <select name="level" class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+    <select name="level" hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-include="#kanban-filters"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все уровни</option>
         {% for l in ["A", "B", "C"] %}
         <option value="{{ l }}" {% if level == l %}selected{% endif %}>{{ l }}</option>
         {% endfor %}
     </select>
-    <select name="priority" class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+    <select name="priority" hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-include="#kanban-filters"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все приоритеты</option>
         {% for p in [1, 2, 3] %}
         <option value="{{ p }}" {% if priority == p %}selected{% endif %}>{{ p }}</option>
         {% endfor %}
     </select>
     {% if current_user.role.value in ('supervisor', 'admin') %}
-    <select name="assigned_manager" class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+    <select name="assigned_manager" hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-include="#kanban-filters"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все менеджеры</option>
         {% for u in users %}
         <option value="{{ u.id }}" {% if assigned_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
         {% endfor %}
     </select>
-    <select name="manager" class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+    <select name="manager" hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-include="#kanban-filters"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="all" {% if manager == 'all' %}selected{% endif %}>Все лиды</option>
         <option value="my" {% if manager == 'my' %}selected{% endif %}>Мои лиды</option>
     </select>
     {% endif %}
-</form>
+</div>
 
 <div id="kanban-board" class="flex gap-3 overflow-x-auto pb-4">
     {% include "partials/kanban_board.html" %}

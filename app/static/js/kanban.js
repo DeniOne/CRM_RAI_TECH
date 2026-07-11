@@ -1,6 +1,7 @@
-document.addEventListener('DOMContentLoaded', function() {
+function initSortable() {
     document.querySelectorAll('.kanban-cards').forEach(function(el) {
-        new Sortable(el, {
+        if (el._sortable) return;
+        el._sortable = new Sortable(el, {
             group: 'kanban',
             animation: 150,
             ghostClass: 'opacity-50',
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-});
+}
 
 function updateColumnCounts() {
     document.querySelectorAll('.kanban-column').forEach(function(col) {
@@ -41,3 +42,14 @@ function updateColumnCounts() {
         if (badge) badge.textContent = count;
     });
 }
+
+document.addEventListener('DOMContentLoaded', initSortable);
+
+document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'kanban-board') {
+        document.querySelectorAll('.kanban-cards').forEach(function(el) {
+            el._sortable = null;
+        });
+        initSortable();
+    }
+});
