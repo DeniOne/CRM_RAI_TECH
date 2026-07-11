@@ -1,0 +1,47 @@
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+    <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span class="text-sm font-medium text-red-800">Ошибка импорта</span>
+    </div>
+    <div class="text-xs text-red-700 font-mono bg-red-100 rounded p-2">{{ error }}</div>
+    <div class="text-xs text-red-600">Файл: {{ filename }}</div>
+</div>
+{% else %}
+<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
+    <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-sm font-medium text-emerald-800">Импорт завершён</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white rounded-lg p-3 text-center border border-emerald-100">
+            <div class="text-2xl font-medium text-emerald-600">{{ report.leads }}</div>
+            <div class="text-xs text-muted">Лидов</div>
+        </div>
+        <div class="bg-white rounded-lg p-3 text-center border border-emerald-100">
+            <div class="text-2xl font-medium text-ink">{{ report.regions }}</div>
+            <div class="text-xs text-muted">Регионов</div>
+        </div>
+        <div class="bg-white rounded-lg p-3 text-center border border-emerald-100">
+            <div class="text-2xl font-medium text-ink">{{ report.contacts }}</div>
+            <div class="text-xs text-muted">Контактов</div>
+        </div>
+        <div class="bg-white rounded-lg p-3 text-center border border-emerald-100">
+            <div class="text-2xl font-medium text-ink">{{ report.contact_logs }}</div>
+            <div class="text-xs text-muted">Записей журнала</div>
+        </div>
+    </div>
+
+    <div class="text-xs text-muted">Файл: {{ filename }}</div>
+
+    <button onclick="closeDrawer(); window.location.reload();"
+            class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
+        Готово — обновить канбан
+    </button>
+</div>
+{% endif %}

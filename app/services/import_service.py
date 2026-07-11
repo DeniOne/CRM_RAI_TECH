@@ -112,8 +112,9 @@ async def get_or_create_region(session: AsyncSession, name: str, cache: dict) ->
     return region
 
 
-async def import_xlsx(path: str, session: AsyncSession) -> dict:
-    xls = pd.ExcelFile(path)
+async def import_xlsx(path_or_buf, session: AsyncSession) -> dict:
+    """Импорт лидов из xlsx. path_or_buf — путь к файлу или BytesIO."""
+    xls = pd.ExcelFile(path_or_buf)
     region_cache: dict[str, Region] = {}
     stats = {"regions": 0, "leads": 0, "contacts": 0, "contact_logs": 0}
 

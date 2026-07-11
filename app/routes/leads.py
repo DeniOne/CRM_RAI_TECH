@@ -1,6 +1,7 @@
 from datetime import datetime, date
+from io import BytesIO
 
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from app.services.funnel_service import (
     STAGES, STAGE_LABELS, STAGE_COLORS, change_stage, validate_transition
 )
 from app.services.dadata_service import find_party_by_inn, suggest_party
+from app.services.import_service import import_xlsx
 
 router = APIRouter()
 
@@ -96,6 +98,136 @@ async def kanban(
             "region_id": region,
             "assigned_manager_id": assigned_manager,
         },
+    )
+
+
+# ===========================================================================
+# Создание лида + Импорт xlsx
+# ВАЖНО: эти роуты — ДО /leads/{lead_id}, иначе FastCI матчит "form" как int
+# ===========================================================================
+
+async def _get_or_create_region(session: AsyncSession, name: str) -> Region:
+    """Найти регион по имени или создать новый."""
+    result = await session.execute(select(Region).where(Region.name == name))
+    region = result.scalar_one_or_none()
+    if not region:
+        region = Region(name=name)
+        session.add(region)
+        await session.flush()
+    return region
+
+
+@router.get("/leads/form", response_class=HTMLResponse)
+async def lead_create_form(request: Request, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    regions_result = await session.execute(select(Region).order_by(Region.name))
+    regions = regions_result.scalars().all()
+
+    users_result = await session.execute(select(User).where(User.is_active == True))
+    users = users_result.scalars().all()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/lead_form.html",
+        context={"current_user": user, "regions": regions, "users": users},
+    )
+
+
+@router.post("/leads/create")
+async def lead_create(
+    request: Request,
+    name: str = Form(...),
+    region_id: int = Form(None),
+    new_region: str = Form(""),
+    inn: str = Form(""),
+    head_name: str = Form(""),
+    site: str = Form(""),
+    level: str = Form(""),
+    priority: int = Form(None),
+    assigned_manager_id: int = Form(None),
+    general_comment: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    clean_name = name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=422, detail="Название обязательно")
+
+    region = None
+    if region_id:
+        result = await session.execute(select(Region).where(Region.id == region_id))
+        region = result.scalar_one_or_none()
+    elif new_region.strip():
+        region = await _get_or_create_region(session, new_region.strip())
+
+    lead = Lead(
+        name=clean_name,
+        region_id=region.id if region else None,
+        inn=inn.strip() or None,
+        head_name=head_name.strip() or None,
+        site=site.strip() or None,
+        level=level if level in ("A", "B", "C") else None,
+        priority=priority if priority in (1, 2, 3) else None,
+        assigned_manager_id=assigned_manager_id or None,
+        general_comment=general_comment.strip() or None,
+        stage="0",
+    )
+    session.add(lead)
+    await session.commit()
+
+    return {"ok": True, "lead_id": lead.id}
+
+
+@router.get("/leads/import/form", response_class=HTMLResponse)
+async def lead_import_form(request: Request, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    if user.role.value not in ("supervisor", "admin"):
+        raise HTTPException(status_code=403)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/import_form.html",
+        context={"current_user": user},
+    )
+
+
+@router.post("/leads/import", response_class=HTMLResponse)
+async def lead_import(
+    request: Request,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    if user.role.value not in ("supervisor", "admin"):
+        raise HTTPException(status_code=403)
+
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=422, detail="Нужен файл .xlsx")
+
+    content = await file.read()
+    buf = BytesIO(content)
+
+    try:
+        report = await import_xlsx(buf, session)
+        await session.commit()
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/import_result.html",
+            context={"current_user": user, "error": str(e), "report": None, "filename": file.filename},
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/import_result.html",
+        context={"current_user": user, "report": report, "error": None, "filename": file.filename},
     )
 
 

@@ -1,0 +1,54 @@
+<form id="import-form" class="space-y-4" onsubmit="return submitImportForm(event);">
+    <div class="text-sm text-muted">
+        Загрузите xlsx-файл. Каждый лист = один регион (имя листа = название региона).
+        Колонки: Название компании, ИНН, Руководитель, Телефон, Уровень, Приоритет и т.д.
+        Лист «Не звонить» — чёрный список.
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Файл xlsx</label>
+        <input type="file" name="file" accept=".xlsx,.xls" required
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+        ⚠ При повторном импорте того же файла будут созданы дубликаты лидов.
+        Импортируйте каждый файл только один раз.
+    </div>
+
+    <button type="submit" id="import-submit-btn"
+            class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
+        Импортировать
+    </button>
+</form>
+
+<div id="import-result"></div>
+
+<script>
+function submitImportForm(e) {
+    e.preventDefault();
+    var btn = document.getElementById('import-submit-btn');
+    var fileInput = e.target.querySelector('input[type="file"]');
+    if (!fileInput.files[0]) { return false; }
+
+    btn.disabled = true;
+    btn.textContent = 'Импорт...';
+
+    var formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    fetch('/leads/import', { method: 'POST', body: formData })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            document.getElementById('import-form').classList.add('hidden');
+            var result = document.getElementById('import-result');
+            result.innerHTML = html;
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Импортировать';
+            alert('Ошибка: ' + err.message);
+        });
+    return false;
+}
+</script>

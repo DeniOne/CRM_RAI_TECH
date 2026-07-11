@@ -1,0 +1,114 @@
+<form id="lead-create-form" class="space-y-4" onsubmit="return submitLeadForm(event);">
+    <div>
+        <label class="block text-xs text-muted mb-1">Название *</label>
+        <input type="text" name="name" required placeholder="ООО «Ромашка»"
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Регион</label>
+        <select name="region_id" id="region-select"
+                onchange="document.getElementById('new-region-wrap').classList.toggle('hidden', this.value !== 'new')"
+                class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+            <option value="">— не выбран —</option>
+            {% for r in regions %}
+            <option value="{{ r.id }}">{{ r.name }}</option>
+            {% endfor %}
+            <option value="new">+ Новый регион...</option>
+        </select>
+    </div>
+    <div id="new-region-wrap" class="hidden">
+        <label class="block text-xs text-muted mb-1">Название нового региона</label>
+        <input type="text" name="new_region" placeholder="Например: Тульская область"
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-muted mb-1">ИНН</label>
+            <input type="text" name="inn" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink font-mono">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Руководитель</label>
+            <input type="text" name="head_name" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+    </div>
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Сайт</label>
+        <input type="text" name="site" placeholder="example.ru"
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-muted mb-1">Уровень</label>
+            <select name="level" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                <option value="">—</option>
+                {% for l in ["A", "B", "C"] %}
+                <option value="{{ l }}">{{ l }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Приоритет</label>
+            <select name="priority" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                <option value="">—</option>
+                {% for p in [1, 2, 3] %}
+                <option value="{{ p }}">{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    {% if current_user.role.value in ('supervisor', 'admin') %}
+    <div>
+        <label class="block text-xs text-muted mb-1">Менеджер</label>
+        <select name="assigned_manager_id" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+            <option value="">— не назначен —</option>
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <div>
+        <label class="block text-xs text-muted mb-1">Комментарий</label>
+        <textarea name="general_comment" rows="2"
+                  class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink"></textarea>
+    </div>
+
+    <button type="submit" id="lead-submit-btn"
+            class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
+        Создать лид
+    </button>
+</form>
+
+<script>
+function submitLeadForm(e) {
+    e.preventDefault();
+    var btn = document.getElementById('lead-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Создание...';
+
+    var formData = new FormData(e.target);
+    fetch('/leads/create', { method: 'POST', body: formData })
+        .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
+            return r.json();
+        })
+        .then(function(data) {
+            if (data.ok) {
+                closeDrawer();
+                window.location.reload();
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Создать лид';
+            alert(err.message);
+        });
+    return false;
+}
+</script>
