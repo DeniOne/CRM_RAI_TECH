@@ -74,18 +74,14 @@ function switchTab(name) {
 }
 
 function sendLeadToChat(leadId) {
-    // Собираем контекст из DOM карточки
-    var name = '{{ lead.name|e }}';
-    var stage = '{{ stage_label|e }}';
-    var level = '{{ (lead.level or "—")|e }}';
-    var region = '{{ (lead.region.name if lead.region else "—")|e }}';
-    var inn = '{{ (lead.inn or "")|e }}';
+    // Данные из шаблона через tojson — безопасная передача в JS без HTML-сущностей
+    var data = {{ {'name': lead.name, 'stage': stage_label, 'level': lead.level or '—', 'region': lead.region.name if lead.region else '—', 'inn': lead.inn or ''} | tojson }};
 
-    var lines = ['Контрагент: ' + name];
-    lines.push('Стадия: ' + stage);
-    lines.push('Уровень: ' + level);
-    lines.push('Регион: ' + region);
-    if (inn) lines.push('ИНН: ' + inn);
+    var lines = ['Контрагент: ' + data.name];
+    lines.push('Стадия: ' + data.stage);
+    lines.push('Уровень: ' + data.level);
+    lines.push('Регион: ' + data.region);
+    if (data.inn) lines.push('ИНН: ' + data.inn);
     lines.push('');
     lines.push('ID лида: ' + leadId);
 

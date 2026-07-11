@@ -4,9 +4,15 @@
 
 <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-medium text-ink">Чат с агентом</h1>
-        <form action="/agent/clear" method="post">
-            <button type="submit" class="text-muted hover:text-ink text-sm">Очистить историю</button>
+        <h1 class="text-2xl font-medium text-ink">
+            Чат с агентом
+            {% if messages %}
+            <span class="text-sm text-muted font-normal ml-2">({{ messages|length }} сообщ.)</span>
+            {% endif %}
+        </h1>
+        <form action="/agent/clear" method="post"
+              onsubmit="return confirm('Удалить ВСЮ историю чата? Это действие необратимо.');">
+            <button type="submit" class="text-muted hover:text-red-600 text-sm">Очистить историю</button>
         </form>
     </div>
 
@@ -98,12 +104,22 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     }
 });
 
-// При загрузке: если есть prefill-сообщение — подгоняем высоту textarea и фокусируем в конец
+// При загрузке: подгоняем высоту textarea, фокусируем, скроллим историю вниз
 (function(){
     var input=document.getElementById('message-input');
     if(input.value){autoResize(input);}
     var len=input.value.length;input.focus();if(input.setSelectionRange){input.setSelectionRange(len,len);}
+
+    // Очищаем URL от prefill-параметров, чтобы при возврате через меню
+    // страница грузилась чистой (с историей, без путаницы с prefill)
+    if(window.location.search){
+        window.history.replaceState(null,'',window.location.pathname);
+    }
+
+    // Скролл вниз после рендера (задержка — чтобы CSS/Tailwind применился)
     scrollToBottom();
+    setTimeout(scrollToBottom,100);
+    setTimeout(scrollToBottom,300);
 })();
 </script>
 {% endblock %}
