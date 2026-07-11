@@ -49,7 +49,10 @@
                 <a href="/kanban" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Канбан</a>
                 <a href="/tasks" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Задачи</a>
                 <a href="/deals" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Сделки</a>
+                <a href="/library" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Библиотека</a>
+                {% if current_user.role.value == 'admin' %}
                 <a href="/templates" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Шаблоны</a>
+                {% endif %}
                 {% if current_user.role.value in ('supervisor', 'admin') %}
                 <div class="pt-3 pb-1 px-3 text-xs font-medium text-muted uppercase tracking-wide">Управление</div>
                 <a href="/reports" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Аналитика</a>

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_role
 from app.config import settings
 from app.database import get_session
 from app.models import Document, DocumentTemplate, Lead
@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("/templates", response_class=HTMLResponse)
 async def templates_page(request: Request, session: AsyncSession = Depends(get_session)):
     from app.main import templates
-    user = await get_current_user(request, session)
+    user = await require_role("admin")(request, session)
 
     result = await session.execute(
         select(DocumentTemplate).order_by(DocumentTemplate.doc_type, DocumentTemplate.name)
@@ -46,7 +46,7 @@ async def upload_template(
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
-    user = await get_current_user(request, session)
+    user = await require_role("admin")(request, session)
 
     if not file.filename.endswith('.docx'):
         raise HTTPException(status_code=400, detail="Только .docx файлы")
@@ -91,7 +91,7 @@ async def delete_template(
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
-    user = await get_current_user(request, session)
+    user = await require_role("admin")(request, session)
 
     result = await session.execute(select(DocumentTemplate).where(DocumentTemplate.id == template_id))
     doc_template = result.scalar_one_or_none()

@@ -1,0 +1,23 @@
+{# Форма создания папки (в drawer). Паттерн task_form: hx-post → перерисовка списка → closeDrawer(). #}
+{# Переменные: parent_folder_id (None = корень) #}
+<form hx-post="/library/folder"
+      hx-target="#library-listing"
+      hx-swap="innerHTML"
+      hx-on::after-request="closeDrawer()">
+    <input type="hidden" name="parent_folder_id" value="{{ parent_folder_id if parent_folder_id else '' }}">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Название папки</label>
+            <input type="text"
+                   name="name"
+                   required
+                   maxlength="255"
+                   autofocus
+                   placeholder="Презентации, КП, Фото..."
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
+            Создать папку
+        </button>
+    </div>
+</form>

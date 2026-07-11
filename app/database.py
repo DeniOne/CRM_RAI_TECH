@@ -17,7 +17,10 @@ async def get_session() -> AsyncSession:
 
 
 async def init_db():
-    from app.models import User, Region, Lead, StageHistory, Contact, ContactLog, Comment, Task, Deal, Document, DocumentTemplate, Invite  # noqa: F401
+    from app.models import (  # noqa: F401
+        User, Region, Lead, StageHistory, Contact, ContactLog, Comment, Task, Deal,
+        Document, DocumentTemplate, Invite, LibraryFolder, LibraryFile,
+    )
 
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

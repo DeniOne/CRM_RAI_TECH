@@ -238,3 +238,46 @@ class Invite(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column()
     used_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+
+
+class LibraryFolder(Base):
+    """Папка в библиотеке. parent_id=None — корень. Дерево в БД, не на диске."""
+    __tablename__ = "library_folders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("library_folders.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    parent: Mapped[Optional["LibraryFolder"]] = relationship(
+        remote_side="LibraryFolder.id", back_populates="children"
+    )
+    children: Mapped[List["LibraryFolder"]] = relationship(
+        back_populates="parent", cascade="all, delete-orphan"
+    )
+    files: Mapped[List["LibraryFile"]] = relationship(
+        back_populates="folder", cascade="all, delete-orphan"
+    )
+
+
+class LibraryFile(Base):
+    """Файл в библиотеке. Физически лежит в storage/library/, путь — в file_path."""
+    __tablename__ = "library_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    folder_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("library_folders.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255))  # отображаемое имя (без uid)
+    original_filename: Mapped[str] = mapped_column(String(500))
+    extension: Mapped[str] = mapped_column(String(20), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    file_path: Mapped[str] = mapped_column(String(500))  # путь к физическому файлу
+    mime_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    uploaded_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    folder: Mapped[Optional["LibraryFolder"]] = relationship(back_populates="files")

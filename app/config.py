@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
     STATIC_DIR: Path = BASE_DIR / "app" / "static"
     DOCX_TEMPLATES_DIR: Path = BASE_DIR / "templates_docx"
+    LIBRARY_DIR: Path = BASE_DIR / "storage" / "library"
 
     class Config:
         env_file = ".env"
@@ -34,3 +35,4 @@ settings = Settings()
 # Ensure storage directory exists
 settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 (settings.STORAGE_DIR / "documents").mkdir(parents=True, exist_ok=True)
+settings.LIBRARY_DIR.mkdir(parents=True, exist_ok=True)

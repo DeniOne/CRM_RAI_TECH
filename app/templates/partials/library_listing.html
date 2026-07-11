@@ -1,0 +1,128 @@
+{# Список содержимого папки. Используется и при первом рендере, и в HTMX-ответах. #}
+{# Переменные: folders, files, current_folder_id, breadcrumb, can_write, human_size, status_message #}
+
+<div id="library-listing-inner">
+    {# Breadcrumb #}
+    {% if breadcrumb %}
+    <nav class="flex items-center flex-wrap gap-1 text-sm mb-4">
+        <a href="/library" class="px-2 py-1 rounded-lg text-muted hover:text-ink hover:bg-slate-100">Библиотека</a>
+        {% for crumb in breadcrumb %}
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-muted/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+        {% if not loop.last %}
+        <a href="/library?folder={{ crumb.id }}" class="px-2 py-1 rounded-lg text-muted hover:text-ink hover:bg-slate-100">{{ crumb.name }}</a>
+        {% else %}
+        <span class="px-2 py-1 font-medium text-ink">{{ crumb.name }}</span>
+        {% endif %}
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {# Статус-сообщение (после HTMX-операций) #}
+    {% if status_message %}
+    <div class="mb-4 px-4 py-2.5 rounded-lg text-sm
+                {% if status_message.type == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+        {{ status_message.text }}
+    </div>
+    {% endif %}
+
+    {# Содержимое: папки, затем файлы #}
+    {% if not folders and not files %}
+    <div class="text-center py-16">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto text-muted/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        <p class="text-sm text-muted mt-3">Папка пуста{% if can_write %}. Загрузите файлы или создайте подпапку.{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {# Папки #}
+        {% for folder in folders %}
+        <div class="group relative bg-white border border-black/10 rounded-xl p-3 hover:border-black/20 hover:shadow-sm transition" id="library-folder-{{ folder.id }}">
+            <a href="/library?folder={{ folder.id }}" class="block">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v1H4a2 2 0 00-2 2V6z"/>
+                    <path opacity="0.5" d="M2 10a2 2 0 012-2h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2v-8z"/>
+                </svg>
+                <div class="mt-2 text-sm font-medium text-ink truncate" title="{{ folder.name }}">{{ folder.name }}</div>
+            </a>
+            {% if can_write %}
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+                <form hx-post="/library/folder/{{ folder.id }}/delete"
+                      hx-target="#library-listing"
+                      hx-swap="innerHTML"
+                      hx-confirm="Удалить папку «{{ folder.name }}»? Папка должна быть пустой.">
+                    <button type="submit" class="p-1 rounded-lg text-muted hover:text-red-600 hover:bg-red-50" title="Удалить">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {# Файлы #}
+        {% for f in files %}
+        <div class="group relative bg-white border border-black/10 rounded-xl p-3 hover:border-black/20 hover:shadow-sm transition" id="library-file-{{ f.id }}">
+            <a href="/library/file/{{ f.id }}/download" class="block">
+                {% set ext = f.extension.lower() %}
+                {# Иконка по типу файла #}
+                {% if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                {% elif ext in ('mp4', 'avi', 'mov', 'mkv', 'webm', 'wmv', 'flv') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                {% elif ext in ('pdf',) %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                {% elif ext in ('doc', 'docx') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                {% elif ext in ('xls', 'xlsx', 'csv') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                {% elif ext in ('ppt', 'pptx') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12H4V4z"/>
+                </svg>
+                {% elif ext in ('zip', 'rar', '7z', 'gz', 'tar') %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                {% endif %}
+                <div class="mt-2 text-sm font-medium text-ink truncate" title="{{ f.original_filename }}">{{ f.name }}{% if f.extension %}.{{ f.extension }}{% endif %}</div>
+                <div class="text-xs text-muted mt-0.5">{{ human_size(f.size_bytes) }}</div>
+            </a>
+            {% if can_write %}
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+                <form hx-post="/library/file/{{ f.id }}/delete"
+                      hx-target="#library-listing"
+                      hx-swap="innerHTML"
+                      hx-confirm="Удалить файл «{{ f.name }}{% if f.extension %}.{{ f.extension }}{% endif %}?">
+                    <button type="submit" class="p-1 rounded-lg text-muted hover:text-red-600 hover:bg-red-50" title="Удалить">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
