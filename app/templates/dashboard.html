@@ -2,7 +2,7 @@
 {% block title %}Дашборд — CRM RAI{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-medium mb-6 text-ink">
-    {% if is_manager %}Мой дашборд{% else %}Дашборд{% endif %}
+    {% if is_manager %}Мой дашборд{% else %}Обзор{% endif %}
 </h1>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -21,7 +21,7 @@
     </div>
     <div class="bg-white border border-black/10 rounded-2xl p-4 text-center">
         <div class="text-3xl font-medium text-blue-500">{{ today_tasks|length }}</div>
-        <div class="text-sm text-muted">На сегодня</div>
+        <div class="text-sm text-muted">Задач на сегодня</div>
     </div>
     {% else %}
     {% for level in ["A", "B", "C"] %}
@@ -35,18 +35,8 @@
     {% endif %}
 </div>
 
-<h2 class="text-lg font-medium mb-3 text-ink">{% if is_manager %}Моя воронка{% else %}Воронка по стадиям{% endif %}</h2>
-<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-    {% set stages = [("0", "Сырые", "blue"), ("1", "В работе", "blue"), ("2", "Квалифиц.", "indigo"), ("3", "КП отправ.", "purple"), ("4", "Переговоры", "orange"), ("5", "Договор", "amber"), ("6", "Счёт", "cyan"), ("7", "Оплачено", "emerald"), ("lost", "Потерян", "red")] %}
-    {% for code, label, color in stages %}
-    <div class="bg-white border border-black/10 rounded-2xl p-3 text-center">
-        <div class="text-2xl font-medium text-{{ color }}-500">{{ by_stage.get(code, 0) }}</div>
-        <div class="text-xs text-muted">{{ label }}</div>
-    </div>
-    {% endfor %}
-</div>
-
 {% if is_manager %}
+{# ── Менеджер: задачи на сегодня и просроченные ── #}
 {% if overdue_tasks %}
 <div class="bg-white border border-black/10 rounded-2xl p-6 mb-4">
     <h2 class="text-lg font-medium mb-4 text-amber-600">Просроченные задачи</h2>
@@ -60,7 +50,6 @@
                     {% if task.lead %} · <a href="/leads/{{ task.lead.id }}" class="text-blue-500 hover:underline">{{ task.lead.name }}</a>{% endif %}
                 </div>
             </div>
-            <a href="/tasks" class="text-ink text-sm hover:underline">Все задачи</a>
         </div>
         {% endfor %}
     </div>
@@ -89,22 +78,25 @@
 </div>
 {% endif %}
 
-<a href="/tasks" class="inline-block bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Все мои задачи</a>
-{% else %}
-{% if by_region %}
-<h2 class="text-lg font-medium mb-3 text-ink">По регионам</h2>
-<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
-    <table class="w-full text-sm">
-        <thead class="text-muted border-b border-black/10">
-            <tr><th class="text-left px-4 py-2 font-medium">Регион</th><th class="text-right px-4 py-2 font-medium">Лидов</th></tr>
-        </thead>
-        <tbody>
-            {% for r in by_region %}
-            <tr class="border-b border-black/10 hover:bg-slate-50"><td class="px-4 py-2 text-ink">{{ r.name }}</td><td class="text-right px-4 py-2 text-ink">{{ r.total }}</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if not overdue_tasks and not today_tasks %}
+<div class="bg-white border border-black/10 rounded-2xl p-8 text-center">
+    <div class="text-sm text-muted mb-3">Нет активных задач</div>
+    <a href="/kanban" class="inline-block bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">К канбану</a>
 </div>
 {% endif %}
+
+{% else %}
+{# ── Руководитель: краткая сводка, детали — в Аналитике ── #}
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-lg font-medium text-ink mb-1">Детальная аналитика</h2>
+            <p class="text-sm text-muted">Воронка по регионам, KPI менеджеров, узкие места воронки</p>
+        </div>
+        <a href="/reports" class="bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90 whitespace-nowrap">
+            Открыть аналитику →
+        </a>
+    </div>
+</div>
 {% endif %}
 {% endblock %}
