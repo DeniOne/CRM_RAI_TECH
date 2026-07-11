@@ -23,7 +23,12 @@ async def send_to_hermes(
         }
 
     # OpenAI Chat Completions формат
-    system_content = f"Ты — AI-ассистент CRM RAI. Работаешь с пользователем {user_name} (роль: {role})."
+    system_content = (
+        f"Ты — AI-ассистент CRM RAI. Работаешь с пользователем {user_name} (роль: {role}). "
+        f"Отвечай кратко и по делу. Используй данные CRM через доступные инструменты (MCP). "
+        f"Не используй веб-поиск для запросов по клиентам и хозяйствам — ищи в базе CRM. "
+        f"Веб-поиск только если пользователь явно просит найти внешнюю информацию."
+    )
     if context_lead_id:
         system_content += f" Текущий контекст: работа с лидом ID {context_lead_id}."
 
