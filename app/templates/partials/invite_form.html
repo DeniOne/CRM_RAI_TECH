@@ -1,0 +1,30 @@
+<form hx-post="/admin/users/invite" hx-target="#invite-result" hx-swap="innerHTML"
+      class="space-y-4">
+    <div>
+        <label class="block text-xs text-muted mb-1">Email приглашаемого</label>
+        <input type="email" name="email" required placeholder="manager@example.com"
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
+    </div>
+    <div>
+        <label class="block text-xs text-muted mb-1">Имя (необязательно)</label>
+        <input type="text" name="full_name" placeholder="Иван Иванов"
+               class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
+    </div>
+    <div>
+        <label class="block text-xs text-muted mb-1">Уровень доступа</label>
+        <select name="role" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+            <option value="manager">Менеджер</option>
+            <option value="supervisor">Руководитель</option>
+            <option value="admin">Админ</option>
+        </select>
+        <div class="text-xs text-muted mt-1">
+            Менеджер — свои лиды и задачи.<br>
+            Руководитель — аналитика, все лиды, назначение менеджеров.<br>
+            Админ — управление пользователями и полным доступом.
+        </div>
+    </div>
+    <button type="submit"
+            class="w-full bg-ink text-white py-2 rounded-lg text-sm hover:bg-ink/90">
+        Создать приглашение
+    </button>
+</form>

@@ -1,0 +1,54 @@
+<tr id="user-row-{{ u.id }}" class="border-b border-black/5">
+    <td class="py-3 px-4">
+        <div class="text-sm font-medium text-ink">{{ u.full_name }}</div>
+        {% if u.id == current_user.id %}
+        <span class="text-xs text-muted">(вы)</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4 text-sm text-muted font-mono">{{ u.email }}</td>
+    <td class="py-3 px-4">
+        <form hx-post="/admin/users/{{ u.id }}/role" hx-target="#user-row-{{ u.id }}" hx-swap="outerHTML"
+              class="inline-block">
+            <select name="role" onchange="this.form.dispatchEvent(new Event('submit', {bubbles:true}))"
+                    class="border border-black/10 rounded-lg px-2 py-1 text-sm text-ink bg-white"
+                    {% if u.id == current_user.id %}disabled title="Нельзя изменить свою роль"{% endif %}>
+                {% for value, label in role_labels.items() %}
+                <option value="{{ value }}" {% if u.role.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </td>
+    <td class="py-3 px-4">
+        {% if u.is_active %}
+        <span class="inline-flex items-center gap-1 text-xs text-emerald-600">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Активен
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 text-xs text-red-600">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span> Деактивирован
+        </span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4">
+        <div class="flex gap-1 flex-wrap">
+            {% if u.id != current_user.id %}
+            <button onclick="toggleActive({{ u.id }})"
+                    class="text-xs {% if u.is_active %}text-red-600 hover:text-red-700{% else %}text-emerald-600 hover:text-emerald-700{% endif %}">
+                {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
+            </button>
+            <span class="text-muted">·</span>
+            <button onclick="resetPassword({{ u.id }})"
+                    class="text-xs text-blue-600 hover:text-blue-700">
+                Сбросить пароль
+            </button>
+            <span class="text-muted">·</span>
+            <button onclick="deleteUser({{ u.id }}, '{{ u.full_name|e }}')"
+                    class="text-xs text-red-600 hover:text-red-700">
+                Удалить
+            </button>
+            {% else %}
+            <span class="text-xs text-muted">—</span>
+            {% endif %}
+        </div>
+    </td>
+</tr>
