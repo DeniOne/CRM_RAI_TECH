@@ -1,12 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Сделки — CRM RAI{% endblock %}
 {% block content %}
+{% set status_labels = {
+    "new": "Новая",
+    "kp_sent": "КП отправлено",
+    "negotiation": "Переговоры",
+    "contract": "Договор",
+    "invoiced": "Счёт выставлен",
+    "paid": "Оплачено",
+    "lost": "Потеряна"
+} %}
 <h1 class="text-2xl font-medium mb-4 text-ink">Сделки</h1>
 
-<div class="flex gap-2 mb-4">
+<div class="flex gap-2 mb-4 flex-wrap">
     <a href="/deals" class="px-3 py-1.5 text-sm rounded-lg {% if not status %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">Все</a>
-    {% for s in ["new", "kp_sent", "negotiation", "contract", "invoiced", "paid", "lost"] %}
-    <a href="/deals?status={{ s }}" class="px-3 py-1.5 text-sm rounded-lg {% if status == s %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">{{ s }}</a>
+    {% for s, label in status_labels.items() %}
+    <a href="/deals?status={{ s }}" class="px-3 py-1.5 text-sm rounded-lg {% if status == s %}bg-ink text-white{% else %}bg-white border border-black/10 text-ink hover:bg-slate-50{% endif %}">{{ label }}</a>
     {% endfor %}
 </div>
 
@@ -36,7 +45,7 @@
                         {% if deal.status == 'paid' %}bg-emerald-50 text-emerald-600
                         {% elif deal.status == 'lost' %}bg-red-50 text-red-600
                         {% elif deal.status == 'new' %}bg-slate-100 text-muted
-                        {% else %}bg-blue-50 text-blue-600{% endif %}">{{ deal.status }}</span>
+                        {% else %}bg-blue-50 text-blue-600{% endif %}">{{ status_labels.get(deal.status, deal.status) }}</span>
                 </td>
                 <td class="px-4 py-2 text-muted">{{ deal.created_at.strftime('%d.%m.%Y') }}</td>
             </tr>
