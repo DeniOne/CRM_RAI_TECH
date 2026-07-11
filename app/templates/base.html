@@ -27,12 +27,17 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="icon" type="image/png" href="/static/logo/rai_tech_icon_32.png">
+    <link rel="apple-touch-icon" href="/static/logo/rai_tech_icon_128.png">
 </head>
 <body class="bg-canvas min-h-screen font-sans {% if current_user %}has-ticker{% endif %}">
     {% if current_user %}
     <div class="flex">
         <aside class="w-64 bg-white border-r border-black/10 min-h-screen p-4 flex flex-col">
-            <div class="text-xl font-medium text-ink mb-6">CRM RAI</div>
+            <div class="flex items-center gap-2 mb-6">
+                <img src="/static/logo/rai_tech_icon_64.png" alt="RAI" class="w-7 h-7" width="28" height="28">
+                <span class="text-xl font-medium text-ink">CRM</span>
+            </div>
             <nav class="space-y-1 flex-1">
                 <a href="/agent" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-ink bg-slate-100 hover:bg-slate-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
