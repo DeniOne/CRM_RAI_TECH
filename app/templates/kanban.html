@@ -6,21 +6,24 @@
 </div>
 
 <div class="flex gap-3 mb-4 flex-wrap">
-    <select name="region" hx-get="/kanban" hx-target="#kanban-board" hx-include="[name='level'],[name='priority'],[name='manager']"
+    <select name="region" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change"
+        hx-include="[name='level'],[name='priority'],[name='manager'],[name='assigned_manager']"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все регионы</option>
         {% for r in regions %}
         <option value="{{ r.id }}" {% if region_id == r.id %}selected{% endif %}>{{ r.name }}</option>
         {% endfor %}
     </select>
-    <select name="level" hx-get="/kanban" hx-target="#kanban-board" hx-include="[name='region'],[name='priority'],[name='manager']"
+    <select name="level" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change"
+        hx-include="[name='region'],[name='priority'],[name='manager'],[name='assigned_manager']"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все уровни</option>
         {% for l in ["A", "B", "C"] %}
         <option value="{{ l }}" {% if level == l %}selected{% endif %}>{{ l }}</option>
         {% endfor %}
     </select>
-    <select name="priority" hx-get="/kanban" hx-target="#kanban-board" hx-include="[name='region'],[name='level'],[name='manager']"
+    <select name="priority" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change"
+        hx-include="[name='region'],[name='level'],[name='manager'],[name='assigned_manager']"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все приоритеты</option>
         {% for p in [1, 2, 3] %}
@@ -28,7 +31,16 @@
         {% endfor %}
     </select>
     {% if current_user.role.value in ('supervisor', 'admin') %}
-    <select name="manager" hx-get="/kanban" hx-target="#kanban-board" hx-include="[name='region'],[name='level'],[name='priority']"
+    <select name="assigned_manager" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change"
+        hx-include="[name='region'],[name='level'],[name='priority'],[name='manager']"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+        <option value="">Все менеджеры</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if assigned_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
+        {% endfor %}
+    </select>
+    <select name="manager" hx-get="/kanban" hx-target="#kanban-board" hx-trigger="change"
+        hx-include="[name='region'],[name='level'],[name='priority'],[name='assigned_manager']"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="all" {% if manager == 'all' %}selected{% endif %}>Все лиды</option>
         <option value="my" {% if manager == 'my' %}selected{% endif %}>Мои лиды</option>
@@ -37,27 +49,7 @@
 </div>
 
 <div id="kanban-board" class="flex gap-3 overflow-x-auto pb-4">
-    {% for stage in stages %}
-    <div class="kanban-column flex-shrink-0 w-[280px] bg-slate-50/50 rounded-2xl p-3" data-stage="{{ stage.code }}">
-        <div class="flex justify-between items-center mb-3">
-            <h3 class="font-medium text-sm text-ink">{{ stage.label }}</h3>
-            <span class="kanban-count text-xs text-muted bg-white border border-black/10 rounded-full px-2 py-0.5">{{ stage.count }}</span>
-        </div>
-        <div class="kanban-cards space-y-2 min-h-[100px]" data-stage="{{ stage.code }}">
-            {% for lead in stage.leads %}
-            <div class="kanban-card bg-white border border-black/10 rounded-2xl p-3 cursor-move hover:border-black/20 transition-colors"
-                 data-lead-id="{{ lead.id }}" data-stage="{{ lead.stage }}">
-                <a href="/leads/{{ lead.id }}" class="font-medium text-sm text-blue-500 hover:underline block truncate">{{ lead.name }}</a>
-                <div class="flex gap-2 mt-1 text-xs text-muted">
-                    {% if lead.level %}<span class="bg-{{ 'emerald' if lead.level == 'A' else ('amber' if lead.level == 'B' else 'slate') }}-100 text-{{ 'emerald' if lead.level == 'A' else ('amber' if lead.level == 'B' else 'muted') }}-600 px-1.5 rounded-lg">{{ lead.level }}</span>{% endif %}
-                    {% if lead.priority %}<span>П{{ lead.priority }}</span>{% endif %}
-                </div>
-                <div class="text-xs text-muted mt-1 truncate">{{ lead.region.name if lead.region else '—' }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endfor %}
+    {% include "partials/kanban_board.html" %}
 </div>
 
 <script src="/static/js/kanban.js"></script>

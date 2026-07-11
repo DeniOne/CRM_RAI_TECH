@@ -24,6 +24,7 @@ async def kanban(
     region: int = None,
     level: str = None,
     priority: int = None,
+    assigned_manager: int = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -44,9 +45,11 @@ async def kanban(
         filters.append(Lead.level == level)
     if priority:
         filters.append(Lead.priority == priority)
+    if assigned_manager:
+        filters.append(Lead.assigned_manager_id == assigned_manager)
 
     result = await session.execute(
-        select(Lead).where(*filters).options(selectinload(Lead.region)).order_by(Lead.name)
+        select(Lead).where(*filters).options(selectinload(Lead.region), selectinload(Lead.assigned_manager)).order_by(Lead.name)
     )
     leads = result.scalars().all()
 
@@ -58,6 +61,9 @@ async def kanban(
     regions_result = await session.execute(select(Region).order_by(Region.name))
     regions = regions_result.scalars().all()
 
+    users_result = await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))
+    users = users_result.scalars().all()
+
     stages_data = []
     for code in STAGES:
         stages_data.append({
@@ -68,6 +74,14 @@ async def kanban(
             "count": len(leads_by_stage[code]),
         })
 
+    # HTMX запрос — возвращаем только фрагмент доски
+    if request.headers.get("hx-request"):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/kanban_board.html",
+            context={"stages": stages_data},
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="kanban.html",
@@ -75,10 +89,12 @@ async def kanban(
             "current_user": user,
             "stages": stages_data,
             "regions": regions,
+            "users": users,
             "manager": manager,
             "level": level,
             "priority": priority,
             "region_id": region,
+            "assigned_manager_id": assigned_manager,
         },
     )
 
