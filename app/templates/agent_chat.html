@@ -14,11 +14,7 @@
         {% for msg in messages %}
         <div class="{% if msg.role == 'user' %}text-right{% else %}text-left{% endif %}">
             <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl
-                {% if msg.role == 'user' %}
-                    bg-ink text-white
-                {% else %}
-                    bg-slate-50 border border-black/10 text-ink
-                {% endif %}">
+                {% if msg.role == 'user' %}bg-ink text-white{% else %}bg-slate-50 border border-black/10 text-ink{% endif %}">
                 <div class="text-sm whitespace-pre-wrap">{{ msg.content }}</div>
             </div>
             <div class="text-xs text-muted mt-1">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
@@ -31,32 +27,69 @@
         {% endfor %}
     </div>
 
-    <form hx-post="/agent/send" hx-target="#chat-history" hx-swap="beforeend"
-          hx-on::after-request="document.getElementById('message-input').value=''; document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight"
-          class="flex gap-2">
+    <form id="chat-form" class="flex gap-2 items-end">
         <input type="hidden" name="context_lead_id" value="">
-        <input type="text" id="message-input" name="message" required
+        <textarea id="message-input" name="message" required rows="1"
                placeholder="Напишите сообщение агенту..."
-               class="flex-1 border border-black/10 rounded-lg px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
-        <button type="submit" class="bg-ink text-white px-6 py-2 rounded-lg text-sm hover:bg-ink/90">
-            Отправить
-        </button>
+               class="flex-1 border border-black/10 rounded-lg px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20 resize-none"
+               style="max-height: 200px;"></textarea>
+        <button id="send-btn" type="submit" class="bg-ink text-white px-6 py-2 rounded-lg text-sm hover:bg-ink/90 whitespace-nowrap">Отправить</button>
     </form>
 
     <div class="mt-4 flex flex-wrap gap-2">
-        <button onclick="document.getElementById('message-input').value='Найди клиентов уровня A в Псковской области'"
-                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
-            Найти клиентов
-        </button>
-        <button onclick="document.getElementById('message-input').value='Какие у меня задачи на сегодня?'"
-                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
-            Мои задачи
-        </button>
-        <button onclick="document.getElementById('message-input').value='Создай задачу: перезвонить ООО Тригорское завтра'"
-                class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">
-            Создать задачу
-        </button>
+        <button onclick="setMessage('Найди клиентов уровня A')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Найти клиентов</button>
+        <button onclick="setMessage('Какие у меня задачи?')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Мои задачи</button>
+        <button onclick="setMessage('Покажи воронку')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Воронка</button>
     </div>
 </div>
 
+<script>
+function setMessage(text){var i=document.getElementById('message-input');i.value=text;i.focus();autoResize(i);}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}
+function scrollToBottom(){var h=document.getElementById('chat-history');h.scrollTop=h.scrollHeight;}
+function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+
+document.getElementById('message-input').addEventListener('input',function(){autoResize(this);});
+document.getElementById('message-input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('chat-form').dispatchEvent(new Event('submit'));}});
+
+document.getElementById('chat-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var input=document.getElementById('message-input');
+    var btn=document.getElementById('send-btn');
+    var msg=input.value.trim();
+    if(!msg)return;
+
+    var hist=document.getElementById('chat-history');
+    var ub=document.createElement('div');
+    ub.className='text-right';
+    ub.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-ink text-white"><div class="text-sm whitespace-pre-wrap">'+escapeHtml(msg)+'</div></div><div class="text-xs text-muted mt-1">'+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+'</div>';
+    hist.appendChild(ub);
+
+    var tp=document.createElement('div');
+    tp.id='typing-indicator';tp.className='text-left';
+    tp.innerHTML='<div class="inline-block px-4 py-3 rounded-2xl bg-slate-50 border border-black/10"><div class="flex gap-1 items-center"><span class="w-2 h-2 rounded-full bg-muted animate-pulse"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.2s"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.4s"></span><span class="text-xs text-muted ml-2">Агент думает...</span></div></div>';
+    hist.appendChild(tp);
+    scrollToBottom();
+
+    input.value='';input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');autoResize(input);
+
+    try{
+        var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id','');
+        var resp=await fetch('/agent/send',{method:'POST',body:fd});
+        var html=await resp.text();
+        var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
+        var tmp=document.createElement('div');tmp.innerHTML=html.trim();
+        while(tmp.firstChild){hist.appendChild(tmp.firstChild);}
+        scrollToBottom();
+    }catch(err){
+        var ti2=document.getElementById('typing-indicator');if(ti2)ti2.remove();
+        var eb=document.createElement('div');eb.className='text-left';
+        eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Ошибка соединения. Попробуйте снова.</div></div>';
+        hist.appendChild(eb);scrollToBottom();
+    }finally{
+        input.disabled=false;btn.disabled=false;btn.classList.remove('opacity-50','cursor-not-allowed');input.focus();
+    }
+});
+scrollToBottom();
+</script>
 {% endblock %}
