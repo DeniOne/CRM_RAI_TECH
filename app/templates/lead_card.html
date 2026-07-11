@@ -140,9 +140,21 @@ function saveLeadName() {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.ok) {
+                var oldName = currentName;
                 // Обновляем отображение
                 document.getElementById('lead-name-display').textContent = data.name;
                 document.title = data.name + ' — CRM RAI';
+
+                // Синхронизируем поле поиска DaData: если там было старое название — меняем на новое
+                var dadataInput = document.getElementById('dadata-query');
+                if (dadataInput) {
+                    var cur = dadataInput.value.trim();
+                    // Обновляем если поле пустое, содержит старое название или совпадает по очищенному виду
+                    if (!cur || cur === oldName || cur === oldName.replace(/^["\s]+|["\s]+$/g, '')) {
+                        dadataInput.value = data.name;
+                    }
+                }
+
                 cancelEditName();
             } else {
                 alert('Ошибка: ' + (data.detail || 'не удалось сохранить'));
@@ -154,14 +166,16 @@ function saveLeadName() {
 }
 
 function sendLeadToChat(leadId) {
-    // Данные из шаблона через tojson — безопасная передача в JS без HTML-сущностей
-    var data = {{ {'name': lead.name, 'stage': stage_label, 'level': lead.level or '—', 'region': lead.region.name if lead.region else '—', 'inn': lead.inn or ''} | tojson }};
+    // Статичные данные (stage/level/region/inn) из шаблона
+    var meta = {{ {'stage': stage_label, 'level': lead.level or '—', 'region': lead.region.name if lead.region else '—', 'inn': lead.inn or ''} | tojson }};
+    // Название — из DOM, чтобы всегда было актуальным (после inline-редактирования)
+    var name = document.getElementById('lead-name-display').textContent;
 
-    var lines = ['Контрагент: ' + data.name];
-    lines.push('Стадия: ' + data.stage);
-    lines.push('Уровень: ' + data.level);
-    lines.push('Регион: ' + data.region);
-    if (data.inn) lines.push('ИНН: ' + data.inn);
+    var lines = ['Контрагент: ' + name];
+    lines.push('Стадия: ' + meta.stage);
+    lines.push('Уровень: ' + meta.level);
+    lines.push('Регион: ' + meta.region);
+    if (meta.inn) lines.push('ИНН: ' + meta.inn);
     lines.push('');
     lines.push('ID лида: ' + leadId);
 
