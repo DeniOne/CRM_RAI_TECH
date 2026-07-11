@@ -79,3 +79,22 @@ async def update_task_status(
         name="partials/task_row.html",
         context={"current_user": user, "task": task},
     )
+
+
+@router.delete("/api/tasks/{task_id}", response_class=HTMLResponse)
+async def delete_task(
+    request: Request,
+    task_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404)
+
+    await session.delete(task)
+    await session.commit()
+
+    return HTMLResponse(content="")

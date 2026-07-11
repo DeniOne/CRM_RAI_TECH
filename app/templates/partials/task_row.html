@@ -1,4 +1,4 @@
-<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-black/10 {% if task.is_overdue %}border-l-4 border-amber-600{% endif %}">
+<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-black/10 {% if task.is_overdue %}border-l-4 border-amber-600{% endif %}" id="task-{{ task.id }}">
     <div class="flex-1">
         <div class="font-medium text-sm text-ink">{{ task.title }}</div>
         {% if task.description %}
@@ -16,11 +16,20 @@
             {% if task.priority == 1 %} · <span class="text-red-600">Высокий</span>{% elif task.priority == 3 %} · <span class="text-muted">Низкий</span>{% endif %}
         </div>
     </div>
-    <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="closest div" hx-swap="outerHTML"
-            name="status" class="text-sm border border-black/10 rounded-lg px-2 py-1 text-ink bg-white ml-3">
-        <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
-        <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
-        <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>
-        <option value="cancelled" {% if task.status=='cancelled' %}selected{% endif %}>Отменено</option>
-    </select>
+    <div class="flex items-center gap-2 ml-3">
+        <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                name="status" class="text-sm border border-black/10 rounded-lg px-2 py-1 text-ink bg-white">
+            <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
+            <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
+            <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>
+            <option value="cancelled" {% if task.status=='cancelled' %}selected{% endif %}>Отменено</option>
+        </select>
+        <button hx-delete="/api/tasks/{{ task.id }}" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                hx-confirm="Удалить задачу?"
+                class="text-muted hover:text-red-600 p-1" title="Удалить">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+        </button>
+    </div>
 </div>
