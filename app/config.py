@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     HERMES_TIMEOUT: int = 30
     HERMES_ENABLED: bool = True
 
+    DADATA_API_KEY: str = ""
+    DADATA_SECRET_KEY: str = ""
+    DADATA_TIMEOUT: int = 15
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     STORAGE_DIR: Path = BASE_DIR / "storage"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"

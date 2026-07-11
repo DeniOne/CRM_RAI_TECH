@@ -28,13 +28,19 @@
     </div>
 
     <form id="chat-form" class="flex gap-2 items-end">
-        <input type="hidden" name="context_lead_id" value="">
+        <input type="hidden" id="ctx-lead-id" name="context_lead_id" value="{{ prefill_lead_id or '' }}">
         <textarea id="message-input" name="message" required rows="1"
                placeholder="Напишите сообщение агенту..."
                class="flex-1 border border-black/10 rounded-lg px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20 resize-none"
-               style="max-height: 200px;"></textarea>
+               style="max-height: 200px;">{{ prefill_message or '' }}</textarea>
         <button id="send-btn" type="submit" class="bg-ink text-white px-6 py-2 rounded-lg text-sm hover:bg-ink/90 whitespace-nowrap">Отправить</button>
     </form>
+
+    {% if prefill_message %}
+    <div class="mt-3 text-xs text-muted bg-slate-50 border border-black/5 rounded-lg px-3 py-2">
+        Сообщение предзаполнено из карточки контрагента. Отправьте как есть или дополните перед отправкой.
+    </div>
+    {% endif %}
 
     <div class="mt-4 flex flex-wrap gap-2">
         <button onclick="setMessage('Найди клиентов уровня A')" class="bg-white border border-black/10 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-ink hover:bg-slate-50">Найти клиентов</button>
@@ -58,6 +64,7 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     var btn=document.getElementById('send-btn');
     var msg=input.value.trim();
     if(!msg)return;
+    var ctxLeadId=document.getElementById('ctx-lead-id').value;
 
     var hist=document.getElementById('chat-history');
     var ub=document.createElement('div');
@@ -74,7 +81,7 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     input.value='';input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');autoResize(input);
 
     try{
-        var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id','');
+        var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id',ctxLeadId||'');
         var resp=await fetch('/agent/send',{method:'POST',body:fd});
         var html=await resp.text();
         var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
@@ -90,6 +97,13 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
         input.disabled=false;btn.disabled=false;btn.classList.remove('opacity-50','cursor-not-allowed');input.focus();
     }
 });
-scrollToBottom();
+
+// При загрузке: если есть prefill-сообщение — подгоняем высоту textarea и фокусируем в конец
+(function(){
+    var input=document.getElementById('message-input');
+    if(input.value){autoResize(input);}
+    var len=input.value.length;input.focus();if(input.setSelectionRange){input.setSelectionRange(len,len);}
+    scrollToBottom();
+})();
 </script>
 {% endblock %}

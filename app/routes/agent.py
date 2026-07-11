@@ -14,7 +14,12 @@ router = APIRouter()
 
 
 @router.get("/agent", response_class=HTMLResponse)
-async def agent_chat_page(request: Request, session: AsyncSession = Depends(get_session)):
+async def agent_chat_page(
+    request: Request,
+    lead_id: int = None,
+    msg: str = None,
+    session: AsyncSession = Depends(get_session),
+):
     from app.main import templates
     user = await get_current_user(request, session)
     if not user:
@@ -29,10 +34,19 @@ async def agent_chat_page(request: Request, session: AsyncSession = Depends(get_
     messages = list(result.scalars().all())
     messages.reverse()
 
+    # Prefill из query-параметров (кнопка "Отправить в чат" из карточки лида)
+    prefill_message = msg or ""
+    prefill_lead_id = lead_id or ""
+
     return templates.TemplateResponse(
         request=request,
         name="agent_chat.html",
-        context={"current_user": user, "messages": messages},
+        context={
+            "current_user": user,
+            "messages": messages,
+            "prefill_message": prefill_message,
+            "prefill_lead_id": prefill_lead_id,
+        },
     )
 
 

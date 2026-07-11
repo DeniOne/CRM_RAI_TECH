@@ -61,9 +61,31 @@
                 <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.loss_reason or '—' }}</div>
             </div>
             {% endif %}
-            <button onclick="toggleEditMode()" class="mt-4 bg-white border border-black/10 px-4 py-2 rounded-lg text-sm text-ink hover:bg-slate-50">
-                Редактировать
-            </button>
+            <div class="mt-4 flex gap-2 flex-wrap">
+                <button onclick="toggleEditMode()" class="bg-white border border-black/10 px-4 py-2 rounded-lg text-sm text-ink hover:bg-slate-50">
+                    Редактировать
+                </button>
+                <button onclick="toggleDadataPanel()" class="bg-white border border-black/10 px-4 py-2 rounded-lg text-sm text-ink hover:bg-slate-50 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    Найти в ЕГРЮЛ (DaData)
+                </button>
+            </div>
+
+            <!-- Панель поиска DaData -->
+            <div id="dadata-panel" class="hidden mt-4 border border-black/10 rounded-lg p-4 bg-slate-50">
+                <div class="text-xs text-muted mb-2">Поиск по названию или ИНН через сервис DaData (данные из ЕГРЮЛ)</div>
+                <div class="flex gap-2">
+                    <input type="text" id="dadata-query" placeholder="Название или ИНН..."
+                           value="{{ lead.inn or lead.name or '' }}"
+                           class="flex-1 border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();dadataSearch();}">
+                    <button onclick="dadataSearch()" id="dadata-search-btn" class="bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90 whitespace-nowrap">Найти</button>
+                </div>
+                <div id="dadata-error" class="hidden mt-2 text-xs text-red-600"></div>
+                <div id="dadata-results" class="mt-3 space-y-2"></div>
+            </div>
         </div>
 
         <div class="edit-mode hidden">
@@ -160,5 +182,127 @@
 function toggleEditMode() {
     document.querySelector('.view-mode').classList.toggle('hidden');
     document.querySelector('.edit-mode').classList.toggle('hidden');
+}
+
+function toggleDadataPanel() {
+    var panel = document.getElementById('dadata-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        var input = document.getElementById('dadata-query');
+        input.focus();
+        input.select();
+    }
+}
+
+var LEAD_ID = {{ lead.id }};
+
+function dadataSearch() {
+    var q = document.getElementById('dadata-query').value.trim();
+    var resultsEl = document.getElementById('dadata-results');
+    var errorEl = document.getElementById('dadata-error');
+    var btn = document.getElementById('dadata-search-btn');
+
+    errorEl.classList.add('hidden');
+    if (!q) { return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Поиск...';
+    resultsEl.innerHTML = '<div class="text-xs text-muted">Ищем в ЕГРЮЛ...</div>';
+
+    fetch('/api/leads/' + LEAD_ID + '/dadata/search?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Найти';
+            if (data.error) {
+                errorEl.textContent = data.error;
+                errorEl.classList.remove('hidden');
+            }
+            var results = data.results || [];
+            if (results.length === 0) {
+                resultsEl.innerHTML = '<div class="text-xs text-muted">Ничего не найдено</div>';
+                return;
+            }
+            resultsEl.innerHTML = '';
+            results.forEach(function(item) {
+                resultsEl.appendChild(renderDadataResult(item));
+            });
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Найти';
+            errorEl.textContent = 'Ошибка запроса: ' + err.message;
+            errorEl.classList.remove('hidden');
+            resultsEl.innerHTML = '';
+        });
+}
+
+function renderDadataResult(item) {
+    var div = document.createElement('div');
+    div.className = 'border border-black/10 rounded-lg p-3 bg-white';
+
+    var statusLabel = item.status === 'ACTIVE' ? '<span class="text-green-600">действующая</span>'
+                   : item.status ? '<span class="text-muted">' + item.status + '</span>'
+                   : '';
+
+    var html = '<div class="flex items-start justify-between gap-2 flex-wrap">';
+    html += '<div class="flex-1 min-w-0">';
+    html += '<div class="text-sm font-medium text-ink">' + escapeHtml(item.name) + '</div>';
+    html += '<div class="text-xs text-muted mt-1">';
+    if (item.inn) html += 'ИНН: ' + escapeHtml(item.inn);
+    if (item.kpp) html += ' • КПП: ' + escapeHtml(item.kpp);
+    if (item.ogrn) html += ' • ОГРН: ' + escapeHtml(item.ogrn);
+    html += '</div>';
+    if (item.address) {
+        html += '<div class="text-xs text-muted mt-1">Адрес: ' + escapeHtml(item.address) + '</div>';
+    }
+    var details = [];
+    if (item.head_name) details.push('Руководитель: ' + escapeHtml(item.head_name));
+    if (item.okved) details.push('ОКВЭД: ' + escapeHtml(item.okved));
+    if (details.length) {
+        html += '<div class="text-xs text-muted mt-1">' + details.join(' • ') + '</div>';
+    }
+    html += '</div>';
+    html += '<div class="text-right shrink-0">' + statusLabel + '</div>';
+    html += '</div>';
+    html += '<div class="mt-2 flex justify-end">';
+    html += '<button onclick="applyDadata(' + JSON.stringify(item).replace(/"/g, '&quot;') + ')" class="bg-ink text-white px-3 py-1.5 rounded-lg text-xs hover:bg-ink/90">Подставить реквизиты</button>';
+    html += '</div>';
+
+    div.innerHTML = html;
+    return div;
+}
+
+function applyDadata(item) {
+    if (!confirm('Подставить реквизиты из ЕГРЮЛ?\nИНН: ' + (item.inn || '—') + '\nРуководитель: ' + (item.head_name || '—'))) {
+        return;
+    }
+
+    var fd = new FormData();
+    fd.append('inn', item.inn || '');
+    fd.append('head_name', item.head_name || '');
+    fd.append('site', item.site || '');
+    fd.append('address', item.address || '');
+
+    fetch('/api/leads/' + LEAD_ID + '/dadata/apply', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                alert('Реквизиты обновлены. Перезагружаем страницу...');
+                window.location.reload();
+            } else {
+                alert('Ошибка: ' + (data.detail || 'не удалось обновить'));
+            }
+        })
+        .catch(function(err) {
+            alert('Ошибка запроса: ' + err.message);
+        });
+}
+
+function escapeHtml(t) {
+    if (!t) return '';
+    var d = document.createElement('div');
+    d.textContent = t;
+    return d.innerHTML;
 }
 </script>

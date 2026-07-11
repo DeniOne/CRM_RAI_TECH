@@ -12,6 +12,7 @@ from app.models import Lead, Contact, ContactLog, Comment, Task, User, Region
 from app.services.funnel_service import (
     STAGES, STAGE_LABELS, STAGE_COLORS, change_stage, validate_transition
 )
+from app.services.dadata_service import find_party_by_inn, suggest_party
 
 router = APIRouter()
 
@@ -411,3 +412,65 @@ async def deal_form(request: Request, lead_id: int, session: AsyncSession = Depe
         name="partials/deal_form.html",
         context={"current_user": user, "lead_id": lead_id},
     )
+
+
+@router.get("/api/leads/{lead_id}/dadata/search")
+async def dadata_search(
+    request: Request,
+    lead_id: int,
+    q: str = "",
+    session: AsyncSession = Depends(get_session),
+):
+    """Поиск контрагента в DaData по названию или ИНН."""
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    query = q.strip()
+    if not query:
+        return {"results": [], "error": "Пустой запрос"}
+
+    # Если запрос — число из 10/12 цифр, ищем по ИНН напрямую
+    digits = query.replace(" ", "").replace("-", "")
+    if digits.isdigit() and len(digits) in (10, 12):
+        result = await find_party_by_inn(digits)
+        if result["result"]:
+            return {"results": [result["result"]], "error": None}
+        return {"results": [], "error": result["error"]}
+
+    result = await suggest_party(query)
+    return {"results": result["results"], "error": result["error"]}
+
+
+@router.post("/api/leads/{lead_id}/dadata/apply")
+async def dadata_apply(
+    request: Request,
+    lead_id: int,
+    inn: str = Form(""),
+    head_name: str = Form(""),
+    site: str = Form(""),
+    address: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+):
+    """Применяет реквизиты из DaData к лиду (обновляет поля)."""
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+
+    if inn:
+        lead.inn = inn
+    if head_name:
+        lead.head_name = head_name
+    if site:
+        lead.site = site
+    # Адрес подставляем в address, если поле пустое — не перезаписываем
+    if address and not lead.address:
+        lead.address = address
+
+    await session.commit()
+    return {"ok": True}
