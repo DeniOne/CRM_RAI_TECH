@@ -84,7 +84,8 @@ def _extract(suggestion: dict) -> dict:
         "full_name": data.get("name", {}).get("full_with_opf", ""),
         "ogrn": data.get("ogrn", ""),
         "kpp": data.get("kpp", ""),
-        # Адрес
+        "okpo": data.get("okpo", ""),
+        # Адрес (юридический — DaData отдаёт зарегистрированный адрес)
         "address": data.get("address", {}).get("value", ""),
         # Руководитель
         "head_name": _person_name(data.get("management", {})),

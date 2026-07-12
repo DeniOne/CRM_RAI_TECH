@@ -285,7 +285,14 @@ function renderDadataResult(item) {
 }
 
 function applyDadata(item) {
-    if (!confirm('Подставить реквизиты из ЕГРЮЛ?\nИНН: ' + (item.inn || '—') + '\nРуководитель: ' + (item.head_name || '—'))) {
+    if (!confirm('Подставить реквизиты из ЕГРЮЛ?\n\n' +
+                 'ИНН: ' + (item.inn || '—') + '\n' +
+                 'ОГРН: ' + (item.ogrn || '—') + '\n' +
+                 'КПП: ' + (item.kpp || '—') + '\n' +
+                 'ОКПО: ' + (item.okpo || '—') + '\n' +
+                 'Руководитель: ' + (item.head_name || '—') + '\n' +
+                 'Адрес: ' + (item.address || '—') + '\n\n' +
+                 'Заполнятся только пустые поля.')) {
         return;
     }
 
@@ -294,6 +301,9 @@ function applyDadata(item) {
     fd.append('head_name', item.head_name || '');
     fd.append('site', item.site || '');
     fd.append('address', item.address || '');
+    fd.append('ogrn', item.ogrn || '');
+    fd.append('kpp', item.kpp || '');
+    fd.append('okpo', item.okpo || '');
 
     fetch('/api/leads/' + LEAD_ID + '/dadata/apply', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })

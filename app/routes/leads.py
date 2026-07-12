@@ -865,9 +865,17 @@ async def dadata_apply(
     head_name: str = Form(""),
     site: str = Form(""),
     address: str = Form(""),
+    ogrn: str = Form(""),
+    kpp: str = Form(""),
+    okpo: str = Form(""),
     session: AsyncSession = Depends(get_session),
 ):
-    """Применяет реквизиты из DaData к лиду (обновляет поля)."""
+    """Применяет реквизиты из DaData к лиду (обновляет поля на обеих вкладках).
+
+    Заполняет: ИНН, руководитель, сайт (вкладка «Информация»);
+    ОГРН, КПП, ОКПО, юридический адрес (вкладка «Реквизиты»).
+    Существующие значения не перезаписываются — только пустые поля.
+    """
     user = await get_current_user(request, session)
     if not user:
         raise HTTPException(status_code=401)
@@ -877,15 +885,27 @@ async def dadata_apply(
     if not lead:
         raise HTTPException(status_code=404, detail="Лид не найден")
 
+    # Вкладка «Информация»
     if inn:
         lead.inn = inn
     if head_name:
         lead.head_name = head_name
     if site:
         lead.site = site
-    # Адрес подставляем в address, если поле пустое — не перезаписываем
+    # Адрес (сырой) — в старое поле address, если пустое
     if address and not lead.address:
         lead.address = address
+
+    # Вкладка «Реквизиты» — не перезаписываем уже заполненные поля
+    if ogrn and not lead.ogrn:
+        lead.ogrn = ogrn
+    if kpp and not lead.kpp:
+        lead.kpp = kpp
+    if okpo and not lead.okpo:
+        lead.okpo = okpo
+    # Юридический адрес — отдельно, т.к. DaData отдаёт именно зарегистрированный (юридический)
+    if address and not lead.legal_address:
+        lead.legal_address = address
 
     await session.commit()
     return {"ok": True}
