@@ -32,8 +32,8 @@
 </head>
 <body class="bg-canvas min-h-screen font-sans {% if current_user %}has-ticker{% endif %}">
     {% if current_user %}
-    <div class="flex">
-        <aside class="w-64 bg-white border-r border-black/10 min-h-screen p-4 flex flex-col">
+    <div class="flex w-screen overflow-hidden">
+        <aside class="w-64 shrink-0 bg-white border-r border-black/10 h-screen sticky top-0 p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-6">
                 <img src="/static/logo/rai_tech_icon_64.png" alt="RAI" class="w-7 h-7" width="28" height="28">
                 <span class="text-xl font-medium text-ink">CRM</span>
@@ -63,7 +63,7 @@
                 {% endif %}
             </nav>
         </aside>
-        <main class="flex-1 flex flex-col min-h-screen">
+        <main class="flex-1 min-w-0 flex flex-col min-h-screen">
             <header class="sticky top-0 z-20 flex items-center justify-end gap-3 px-6 py-3 bg-white/80 backdrop-blur border-b border-black/5">
                 <span class="text-sm font-medium text-ink">{{ current_user.full_name }}</span>
                 <span class="text-xs text-muted">
@@ -72,7 +72,7 @@
                 </span>
                 <a href="/logout" class="ml-2 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50">Выйти</a>
             </header>
-            <div class="flex-1 p-6">
+            <div class="flex-1 p-6 overflow-x-auto">
                 {% block content %}{% endblock %}
             </div>
         </main>
