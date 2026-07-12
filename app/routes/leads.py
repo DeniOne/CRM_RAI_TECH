@@ -423,6 +423,83 @@ async def toggle_dm(
     )
 
 
+@router.get("/leads/{lead_id}/contacts/{contact_id}/edit", response_class=HTMLResponse)
+async def contact_edit_form(
+    request: Request,
+    lead_id: int,
+    contact_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Contact).where(Contact.id == contact_id))
+    contact = result.scalar_one_or_none()
+    if not contact:
+        raise HTTPException(status_code=404)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/contact_edit_form.html",
+        context={"current_user": user, "contact": contact, "lead_id": lead_id},
+    )
+
+
+@router.put("/leads/{lead_id}/contacts/{contact_id}", response_class=HTMLResponse)
+async def update_contact(
+    request: Request,
+    lead_id: int,
+    contact_id: int,
+    name: str = Form(""),
+    position: str = Form(""),
+    phone: str = Form(...),
+    email: str = Form(""),
+    is_decision_maker: bool = Form(False),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Contact).where(Contact.id == contact_id))
+    contact = result.scalar_one_or_none()
+    if not contact:
+        raise HTTPException(status_code=404)
+
+    contact.name = name or None
+    contact.position = position or None
+    contact.phone = phone
+    contact.email = email or None
+    contact.is_decision_maker = is_decision_maker
+
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/contact_row.html",
+        context={"current_user": user, "contact": contact, "lead_id": lead_id},
+    )
+
+
+@router.delete("/leads/{lead_id}/contacts/{contact_id}", response_class=HTMLResponse)
+async def delete_contact(
+    request: Request,
+    lead_id: int,
+    contact_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Contact).where(Contact.id == contact_id))
+    contact = result.scalar_one_or_none()
+    if not contact:
+        raise HTTPException(status_code=404)
+
+    await session.delete(contact)
+    await session.commit()
+
+    return HTMLResponse(content="")
+
+
 @router.post("/leads/{lead_id}/contact-log", response_class=HTMLResponse)
 async def add_contact_log(
     request: Request,

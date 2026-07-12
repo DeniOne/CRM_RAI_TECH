@@ -1,0 +1,30 @@
+<form hx-put="/leads/{{ lead_id }}/contacts/{{ contact.id }}" hx-target="#contact-{{ contact.id }}" hx-swap="outerHTML"
+      hx-on::after-request="closeDrawer()">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Имя</label>
+            <input type="text" name="name" value="{{ contact.name or '' }}"
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Должность</label>
+            <input type="text" name="position" value="{{ contact.position or '' }}"
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Телефон</label>
+            <input type="text" name="phone" value="{{ contact.phone }}" required
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Email</label>
+            <input type="email" name="email" value="{{ contact.email or '' }}"
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div class="flex items-center gap-2">
+            <input type="checkbox" name="is_decision_maker" id="edit_dm" {% if contact.is_decision_maker %}checked{% endif %} class="rounded">
+            <label for="edit_dm" class="text-sm text-ink">ЛПР</label>
+        </div>
+        <button type="submit" class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">Сохранить</button>
+    </div>
+</form>
