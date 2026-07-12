@@ -366,6 +366,51 @@ async def lead_edit(
     )
 
 
+@router.post("/leads/{lead_id}/requisites", response_class=HTMLResponse)
+async def lead_edit_requisites(
+    request: Request,
+    lead_id: int,
+    session: AsyncSession = Depends(get_session),
+    inn: str = Form(""),
+    ogrn: str = Form(""),
+    kpp: str = Form(""),
+    okpo: str = Form(""),
+    legal_address: str = Form(""),
+    postal_address: str = Form(""),
+    bank_name: str = Form(""),
+    bank_bic: str = Form(""),
+    bank_account: str = Form(""),
+    bank_corr_account: str = Form(""),
+):
+    """Сохранение реквизитов контрагента со вкладки «Реквизиты»."""
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404)
+
+    lead.inn = inn.strip() or None
+    lead.ogrn = ogrn.strip() or None
+    lead.kpp = kpp.strip() or None
+    lead.okpo = okpo.strip() or None
+    lead.legal_address = legal_address.strip() or None
+    lead.postal_address = postal_address.strip() or None
+    lead.bank_name = bank_name.strip() or None
+    lead.bank_bic = bank_bic.strip() or None
+    lead.bank_account = bank_account.strip() or None
+    lead.bank_corr_account = bank_corr_account.strip() or None
+
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/lead_requisites_form.html",
+        context={"current_user": user, "lead": lead},
+    )
+
+
 @router.post("/leads/{lead_id}/contacts", response_class=HTMLResponse)
 async def add_contact(
     request: Request,

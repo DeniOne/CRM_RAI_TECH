@@ -1,3 +1,4 @@
+from sqlalchemy import text as sqlalchemy_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -24,6 +25,31 @@ async def init_db():
 
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Миграция: добавляем колонки реквизитов в существующую таблицу leads.
+    # create_all не добавляет колонки к существующим таблицам, делаем ALTER вручную.
+    # Idempotent: пропускаем уже существующие колонки.
+    new_lead_columns = [
+        ("ogrn", "VARCHAR(20)"),
+        ("kpp", "VARCHAR(20)"),
+        ("okpo", "VARCHAR(20)"),
+        ("legal_address", "VARCHAR(500)"),
+        ("postal_address", "VARCHAR(500)"),
+        ("bank_name", "VARCHAR(255)"),
+        ("bank_bic", "VARCHAR(20)"),
+        ("bank_account", "VARCHAR(30)"),
+        ("bank_corr_account", "VARCHAR(30)"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(
+            sqlalchemy_text("PRAGMA table_info(leads)")
+        )
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_lead_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
+                )
 
     # Create default admin
     async with async_session_maker() as session:

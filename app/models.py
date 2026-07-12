@@ -57,6 +57,17 @@ class Lead(Base):
     head_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     site: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
+    # Юридические реквизиты
+    ogrn: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    kpp: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    okpo: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    legal_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    postal_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    bank_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    bank_bic: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    bank_account: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    bank_corr_account: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+
     # Rapeseed
     rapeseed_info: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     rapeseed_verified: Mapped[bool] = mapped_column(Boolean, default=False)

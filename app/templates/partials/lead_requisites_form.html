@@ -1,0 +1,148 @@
+{# Вкладка «Реквизиты» в карточке лида. View/edit в стиле lead_info_form.html.
+   Переменные: current_user, lead #}
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <h2 class="text-lg font-medium mb-4 text-ink">Реквизиты контрагента</h2>
+    <div id="req-container">
+        <!-- Режим просмотра -->
+        <div class="req-view-mode space-y-4">
+            <div>
+                <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Регистрация</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs text-muted">ИНН</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.inn or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">ОГРН</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.ogrn or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">КПП</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.kpp or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">ОКПО</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.okpo or '—' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-black/5 pt-4">
+                <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Адреса</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs text-muted">Юридический адрес</div>
+                        <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.legal_address or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Почтовый адрес</div>
+                        <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.postal_address or '—' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-black/5 pt-4">
+                <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Банковские реквизиты</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs text-muted">Банк</div>
+                        <div class="text-sm text-ink">{{ lead.bank_name or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">БИК</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.bank_bic or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Расчётный счёт</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.bank_account or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Корреспондентский счёт</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.bank_corr_account or '—' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button onclick="toggleReqEditMode()" class="bg-white border border-black/10 px-4 py-2 rounded-lg text-sm text-ink hover:bg-slate-50">
+                    Редактировать
+                </button>
+            </div>
+        </div>
+
+        <!-- Режим редактирования -->
+        <div class="req-edit-mode hidden">
+            <form hx-post="/leads/{{ lead.id }}/requisites" hx-target="#req-container" hx-swap="innerHTML">
+                <div>
+                    <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Регистрация</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">ИНН</label>
+                            <input type="text" name="inn" value="{{ lead.inn or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">ОГРН</label>
+                            <input type="text" name="ogrn" value="{{ lead.ogrn or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">КПП</label>
+                            <input type="text" name="kpp" value="{{ lead.kpp or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">ОКПО</label>
+                            <input type="text" name="okpo" value="{{ lead.okpo or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Адреса</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Юридический адрес</label>
+                            <textarea name="legal_address" rows="2" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.legal_address or '' }}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Почтовый адрес</label>
+                            <textarea name="postal_address" rows="2" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.postal_address or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Банковские реквизиты</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Банк</label>
+                            <input type="text" name="bank_name" value="{{ lead.bank_name or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">БИК</label>
+                            <input type="text" name="bank_bic" value="{{ lead.bank_bic or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Расчётный счёт</label>
+                            <input type="text" name="bank_account" value="{{ lead.bank_account or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-muted mb-1">Корреспондентский счёт</label>
+                            <input type="text" name="bank_corr_account" value="{{ lead.bank_corr_account or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex gap-2">
+                    <button type="submit" class="bg-ink text-white px-6 py-2 rounded-lg text-sm hover:bg-ink/90">Сохранить</button>
+                    <button type="button" onclick="toggleReqEditMode()" class="text-muted hover:text-ink text-sm px-4 py-2">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleReqEditMode() {
+    document.querySelector('.req-view-mode').classList.toggle('hidden');
+    document.querySelector('.req-edit-mode').classList.toggle('hidden');
+}
+</script>
