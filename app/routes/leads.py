@@ -1,4 +1,5 @@
 from datetime import datetime, date, timedelta
+import asyncio
 from io import BytesIO
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
@@ -835,22 +836,32 @@ async def add_journal_entry(
     session.add(log)
     await session.commit()
 
-    # Уведомление Hermes о новой задаче
+    # Уведомление Hermes о новой задаче — в фоне, не блокирует ответ формы.
+    # send_to_hermes не использует session (только httpx), данные захвачены в
+    # замыкании. До фикса это был await — форма ждала LLM-инференс 10-40 сек.
     if new_task and notify_hermes:
         hermes_msg = f"Создана задача: {new_task.title}"
         if new_task.due_date:
             hermes_msg += f" (срок: {new_task.due_date.strftime('%d.%m.%Y %H:%M')})"
         hermes_msg += f" для лида {lead.name}"
-        try:
-            await send_to_hermes(
-                message=f"Напомни мне: {hermes_msg}",
-                user_id=user.id,
-                user_name=user.full_name,
-                role=user.role.value,
-                context_lead_id=lead_id,
-            )
-        except Exception:
-            pass  # Hermes недоступен — не блокируем запись в Журнал
+        _hermes_user_id = user.id
+        _hermes_user_name = user.full_name
+        _hermes_role = user.role.value
+        _hermes_lead_id = lead_id
+
+        async def _notify_hermes_bg():
+            try:
+                await send_to_hermes(
+                    message=f"Напомни мне: {hermes_msg}",
+                    user_id=_hermes_user_id,
+                    user_name=_hermes_user_name,
+                    role=_hermes_role,
+                    context_lead_id=_hermes_lead_id,
+                )
+            except Exception:
+                pass  # Hermes недоступен — не блокируем запись в Журнал
+
+        asyncio.create_task(_notify_hermes_bg())
 
     return await _render_journal(request, session, lead_id, user)
 
