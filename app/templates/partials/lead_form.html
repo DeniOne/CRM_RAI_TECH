@@ -1,4 +1,7 @@
-<form id="lead-create-form" class="space-y-4" onsubmit="return submitLeadForm(event);">
+<form id="lead-create-form" class="space-y-4"
+      hx-post="/leads/create" hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ closeDrawer(); window.location.reload(); }"
+      hx-on::response-error="var btn=document.getElementById('lead-submit-btn'); btn.disabled=false; btn.textContent='Создать лид'; event.detail.xhr.response && showToast(JSON.parse(event.detail.xhr.response).detail || 'Ошибка создания', 'error');">
     <div>
         <label class="block text-xs text-muted mb-1">Название *</label>
         <input type="text" name="name" required placeholder="ООО «Ромашка»"
@@ -84,35 +87,9 @@
     </div>
 
     <button type="submit" id="lead-submit-btn"
+            hx-disabled-elt="this"
             class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
         Создать лид
     </button>
 </form>
 
-<script>
-function submitLeadForm(e) {
-    e.preventDefault();
-    var btn = document.getElementById('lead-submit-btn');
-    btn.disabled = true;
-    btn.textContent = 'Создание...';
-
-    var formData = new FormData(e.target);
-    fetch('/leads/create', { method: 'POST', body: formData })
-        .then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
-            return r.json();
-        })
-        .then(function(data) {
-            if (data.ok) {
-                closeDrawer();
-                window.location.reload();
-            }
-        })
-        .catch(function(err) {
-            btn.disabled = false;
-            btn.textContent = 'Создать лид';
-            alert(err.message);
-        });
-    return false;
-}
-</script>
