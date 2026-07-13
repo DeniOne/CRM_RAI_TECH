@@ -61,6 +61,9 @@ async def update_task_status(
     if not task:
         raise HTTPException(status_code=404)
 
+    if status == "cancelled" and user.role.value == "manager":
+        raise HTTPException(status_code=403, detail="Менеджер не может отменять задачи")
+
     task.status = status
     if status == "done":
         task.completed_at = datetime.now()
@@ -88,6 +91,9 @@ async def delete_task(
     session: AsyncSession = Depends(get_session),
 ):
     user = await get_current_user(request, session)
+
+    if user.role.value == "manager":
+        raise HTTPException(status_code=403, detail="Менеджер не может удалять задачи")
 
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
