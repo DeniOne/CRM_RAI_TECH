@@ -745,12 +745,9 @@ async def add_journal_entry(
     request: Request,
     lead_id: int,
     # Действие (обязательно)
+    action_date: str = Form(""),  # дата действия (date); пусто = сейчас
     contact_type: str = Form("call"),
-    result: str = Form(...),
-    outcome: str = Form(""),
-    next_action_date: str = Form(""),
-    # Комментарий (опционально)
-    comment_body: str = Form(""),
+    result: str = Form(...),  # основной текст — «комментарий» что было
     # Задача (опционально)
     task_title: str = Form(""),
     task_due_date: str = Form(""),
@@ -758,11 +755,10 @@ async def add_journal_entry(
     notify_hermes: bool = Form(False),
     session: AsyncSession = Depends(get_session),
 ):
-    """Единая форма Журнала: создаёт действие + опционально комментарий и задачу.
+    """Единая форма Журнала: создаёт действие + опционально задачу.
 
-    Действие (ContactLog) обязательно. Если заполнен comment_body — создаётся
-    Comment и привязывается к ContactLog.comment_id. Если заполнен task_title —
-    создаётся Task и привязывается к ContactLog.task_id.
+    Действие (ContactLog) обязательно. result — основной текст действия.
+    Если заполнен task_title — создаётся Task и привязывается к ContactLog.task_id.
     """
     from app.services.hermes_service import send_to_hermes
     user = await get_current_user(request, session)
@@ -776,44 +772,26 @@ async def add_journal_entry(
 
     result_text = result.strip()
     if not result_text:
-        raise HTTPException(status_code=422, detail="Результат действия обязателен")
+        raise HTTPException(status_code=422, detail="Комментарий обязателен")
 
-    # Парсинг дат
-    next_date = None
-    if next_action_date:
+    # Дата действия: из формы, иначе сейчас
+    when = datetime.now()
+    if action_date:
         try:
-            next_date = datetime.strptime(next_action_date, "%Y-%m-%d").date()
+            when = datetime.strptime(action_date, "%Y-%m-%d")
         except ValueError:
             pass
 
-    # 1. Комментарий (создаём до ContactLog, чтобы знать его id)
-    new_comment = None
-    comment_text = comment_body.strip()
-    if comment_text:
-        new_comment = Comment(
-            lead_id=lead_id,
-            user_id=user.id,
-            body=comment_text,
-        )
-        session.add(new_comment)
-        await session.flush()  # получаем id
-
-    # 2. Задача (если указан заголовок ИЛИ дата следующего действия)
+    # Задача (если указан заголовок)
     new_task = None
     task_name = task_title.strip()
-    # Если явного заголовка нет, но есть next_action_date — автозаголовок «Перезвонить»
-    if not task_name and next_date:
-        task_name = f"Перезвонить: {lead.name}"
     if task_name:
-        # Срок: явный task_due_date, иначе next_action_date на 00:00
         due_dt = None
         if task_due_date:
             try:
                 due_dt = datetime.strptime(task_due_date, "%Y-%m-%dT%H:%M")
             except ValueError:
                 due_dt = None
-        if not due_dt and next_date:
-            due_dt = datetime.combine(next_date, datetime.min.time())
 
         new_task = Task(
             lead_id=lead_id,
@@ -827,16 +805,16 @@ async def add_journal_entry(
         session.add(new_task)
         await session.flush()
 
-    # 3. Действие (ContactLog) — главная ось, привязываем comment/task
+    # Действие (ContactLog) — главная ось, привязываем задачу если есть
     log = ContactLog(
         lead_id=lead_id,
         user_id=user.id,
         contact_type=contact_type,
-        contact_date=datetime.now(),
+        contact_date=when,
         result=result_text,
-        outcome=outcome or None,
-        next_action_date=next_date,
-        comment_id=new_comment.id if new_comment else None,
+        outcome=None,
+        next_action_date=None,
+        comment_id=None,
         task_id=new_task.id if new_task else None,
     )
     session.add(log)
