@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from io import BytesIO
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
@@ -773,6 +773,21 @@ async def add_journal_entry(
     result_text = result.strip()
     if not result_text:
         raise HTTPException(status_code=422, detail="Комментарий обязателен")
+
+    # Дедупликация двойного клика: если этот же пользователь за последние 10 сек
+    # уже создал запись с идентичным текстом на этот лид — не дублируем,
+    # возвращаем текущую ленту (как при успехе, но без INSERT).
+    dup_threshold = datetime.now() - timedelta(seconds=10)
+    dup_q = await session.execute(
+        select(ContactLog).where(
+            ContactLog.lead_id == lead_id,
+            ContactLog.user_id == user.id,
+            ContactLog.result == result_text,
+            ContactLog.created_at >= dup_threshold,
+        )
+    )
+    if dup_q.scalar_one_or_none() is not None:
+        return await _render_journal(request, session, lead_id, user)
 
     # Дата действия: из формы, иначе сейчас
     when = datetime.now()
