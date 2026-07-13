@@ -112,8 +112,11 @@ async def get_or_create_region(session: AsyncSession, name: str, cache: dict) ->
     return region
 
 
-async def import_xlsx(path_or_buf, session: AsyncSession) -> dict:
-    """Импорт лидов из xlsx. path_or_buf — путь к файлу или BytesIO."""
+async def import_xlsx(path_or_buf, session: AsyncSession, default_manager_id: int | None = None) -> dict:
+    """Импорт лидов из xlsx. path_or_buf — путь к файлу или BytesIO.
+
+    default_manager_id: всем импортируемым лидам будет назначен этот менеджер.
+    """
     xls = pd.ExcelFile(path_or_buf)
     region_cache: dict[str, Region] = {}
     stats = {"regions": 0, "leads": 0, "contacts": 0, "contact_logs": 0}
@@ -155,6 +158,7 @@ async def import_xlsx(path_or_buf, session: AsyncSession) -> dict:
                 general_comment=_str_or_none(row.get(col_map.get("general_comment", ""))),
                 done_summary=_str_or_none(row.get(col_map.get("done_summary", ""))),
                 todo_summary=_str_or_none(row.get(col_map.get("todo_summary", ""))),
+                assigned_manager_id=default_manager_id,
             )
 
             if is_blacklist:

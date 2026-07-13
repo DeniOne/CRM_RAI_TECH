@@ -26,7 +26,7 @@ async def kanban(
     region: int = None,
     level: str = None,
     priority: int = None,
-    assigned_manager: int = None,
+    assigned_manager: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -47,8 +47,12 @@ async def kanban(
         filters.append(Lead.level == level)
     if priority:
         filters.append(Lead.priority == priority)
+    # Фильтр по конкретному менеджеру. "unassigned" → лиды без менеджера.
     if assigned_manager:
-        filters.append(Lead.assigned_manager_id == assigned_manager)
+        if assigned_manager == "unassigned":
+            filters.append(Lead.assigned_manager_id.is_(None))
+        elif assigned_manager.isdigit():
+            filters.append(Lead.assigned_manager_id == int(assigned_manager))
 
     result = await session.execute(
         select(Lead).where(*filters).options(selectinload(Lead.region), selectinload(Lead.assigned_manager)).order_by(Lead.name)
@@ -158,6 +162,14 @@ async def lead_create(
     if not clean_name:
         raise HTTPException(status_code=422, detail="Название обязательно")
 
+    # Менеджер обязателен. Если не передан — для роли manager подставляем себя,
+    # для supervisor/admin — отказ (должны выбрать в форме).
+    if not assigned_manager_id:
+        if user.role.value == "manager":
+            assigned_manager_id = user.id
+        else:
+            raise HTTPException(status_code=422, detail="Выберите менеджера")
+
     region = None
     if region_id:
         result = await session.execute(select(Region).where(Region.id == region_id))
@@ -173,7 +185,7 @@ async def lead_create(
         site=site.strip() or None,
         level=level if level in ("A", "B", "C") else None,
         priority=priority if priority in (1, 2, 3) else None,
-        assigned_manager_id=assigned_manager_id or None,
+        assigned_manager_id=assigned_manager_id,
         general_comment=general_comment.strip() or None,
         stage="0",
     )
@@ -190,10 +202,13 @@ async def lead_import_form(request: Request, session: AsyncSession = Depends(get
     if user.role.value not in ("supervisor", "admin"):
         raise HTTPException(status_code=403)
 
+    users_result = await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))
+    users = users_result.scalars().all()
+
     return templates.TemplateResponse(
         request=request,
         name="partials/import_form.html",
-        context={"current_user": user},
+        context={"current_user": user, "users": users},
     )
 
 
@@ -201,6 +216,7 @@ async def lead_import_form(request: Request, session: AsyncSession = Depends(get
 async def lead_import(
     request: Request,
     file: UploadFile = File(...),
+    default_manager_id: int = Form(...),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -215,7 +231,7 @@ async def lead_import(
     buf = BytesIO(content)
 
     try:
-        report = await import_xlsx(buf, session)
+        report = await import_xlsx(buf, session, default_manager_id=default_manager_id)
         await session.commit()
     except Exception as e:
         return templates.TemplateResponse(

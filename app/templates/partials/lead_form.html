@@ -63,14 +63,18 @@
 
     {% if current_user.role.value in ('supervisor', 'admin') %}
     <div>
-        <label class="block text-xs text-muted mb-1">Менеджер</label>
-        <select name="assigned_manager_id" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
-            <option value="">— не назначен —</option>
+        <label class="block text-xs text-muted mb-1">Менеджер *</label>
+        <select name="assigned_manager_id" required
+                class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+            <option value="">— выберите менеджера —</option>
             {% for u in users %}
             <option value="{{ u.id }}">{{ u.full_name }}</option>
             {% endfor %}
         </select>
     </div>
+    {% else %}
+    {# Менеджер создаёт лид — назначается на него автоматически (скрытое поле) #}
+    <input type="hidden" name="assigned_manager_id" value="{{ current_user.id }}">
     {% endif %}
 
     <div>

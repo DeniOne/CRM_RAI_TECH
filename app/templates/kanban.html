@@ -51,6 +51,7 @@
     <select name="assigned_manager"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все менеджеры</option>
+        <option value="unassigned" {% if assigned_manager_id == 'unassigned' %}selected{% endif %}>— Нераспределённые —</option>
         {% for u in users %}
         <option value="{{ u.id }}" {% if assigned_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
         {% endfor %}

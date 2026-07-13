@@ -11,6 +11,18 @@
                class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
     </div>
 
+    <div>
+        <label class="block text-xs text-muted mb-1">Назначить все лиды менеджеру *</label>
+        <select name="default_manager_id" required
+                class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+            <option value="">— выберите менеджера —</option>
+            {% for u in users %}
+            <option value="{{ u.id }}" {% if current_user.id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
+            {% endfor %}
+        </select>
+        <p class="text-xs text-muted mt-1">Все импортируемые лиды будут назначены этому менеджеру.</p>
+    </div>
+
     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
         ⚠ При повторном импорте того же файла будут созданы дубликаты лидов.
         Импортируйте каждый файл только один раз.
@@ -31,11 +43,18 @@ function submitImportForm(e) {
     var fileInput = e.target.querySelector('input[type="file"]');
     if (!fileInput.files[0]) { return false; }
 
+    var managerSelect = e.target.querySelector('select[name="default_manager_id"]');
+    if (!managerSelect.value) {
+        alert('Выберите менеджера, которому назначить импортируемые лиды');
+        managerSelect.focus();
+        return false;
+    }
+
     btn.disabled = true;
     btn.textContent = 'Импорт...';
 
-    var formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    // Отправляем всю форму (файл + менеджер)
+    var formData = new FormData(e.target);
 
     fetch('/leads/import', { method: 'POST', body: formData })
         .then(function(r) { return r.text(); })
