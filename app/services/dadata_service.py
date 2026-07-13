@@ -35,16 +35,24 @@ async def find_party_by_inn(inn: str) -> dict:
         return {"result": None, "error": str(e)}
 
 
-async def suggest_party(query: str, count: int = 5) -> dict:
+async def suggest_party(query: str, count: int = 5, region: str | None = None) -> dict:
     """
     Поиск контрагентов по названию/ИНН через DaData suggest/party.
     Возвращает {"results": [...], "error": str | None}.
+
+    region — необязательное имя региона (например, «Кировская область»).
+    Если передано, фильтрует выдачу по региону через locations/restrict_value,
+    что отсекает ложные совпадения по частым названиям (ЗАО «Прогресс» и т.п.).
+    Без region — старое поведение (поиск по всей РФ).
     """
     if not settings.DADATA_API_KEY:
         return {"results": [], "error": "DaData API key не настроен"}
 
     headers = _headers()
     payload = {"query": query.strip(), "count": count}
+    if region:
+        payload["locations"] = [{"region": region}]
+        payload["restrict_value"] = True
 
     try:
         async with httpx.AsyncClient(timeout=settings.DADATA_TIMEOUT) as client:
