@@ -51,6 +51,23 @@ async def init_db():
                     sqlalchemy_text(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
                 )
 
+    # Миграция: колонки связи единого Журнала в contact_logs.
+    # SET NULL на удаление связанного комментария/задачи — действие остаётся.
+    new_contact_log_columns = [
+        ("comment_id", "INTEGER"),
+        ("task_id", "INTEGER"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(
+            sqlalchemy_text("PRAGMA table_info(contact_logs)")
+        )
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_contact_log_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE contact_logs ADD COLUMN {col_name} {col_type}")
+                )
+
     # Create default admin
     async with async_session_maker() as session:
         from app.auth import create_default_admin

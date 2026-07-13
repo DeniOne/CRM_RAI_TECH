@@ -1,0 +1,183 @@
+{# Единая лента Журнала. Переменные: lead, entries (из _build_journal_entries). #}
+<div class="bg-white border border-black/10 rounded-2xl p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-medium text-ink">Журнал работы по лиду</h2>
+        <button onclick="openJournalForm()"
+                class="bg-ink text-white px-3 py-1.5 rounded-lg text-sm hover:bg-ink/90 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Записать действие
+        </button>
+    </div>
+
+    <div id="journal-list" class="space-y-3">
+        {% if not entries %}
+        <div class="flex flex-col items-center justify-center py-12 text-center">
+            <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+            <div class="text-sm text-muted mb-3">Журнал пуст. Запишите первое действие.</div>
+            <button onclick="openJournalForm()"
+                    class="bg-ink text-white px-3 py-1.5 rounded-lg text-sm hover:bg-ink/90">
+                + Записать действие
+            </button>
+        </div>
+        {% endif %}
+
+        {% for entry in entries %}
+            {# ═══ ДЕЙСТВИЕ (с опциональными комментарием и задачей) ═══ #}
+            {% if entry.kind == 'action' %}
+            {% set log = entry.log %}
+            <div class="bg-slate-50 rounded-xl border border-black/10 overflow-hidden">
+                {# Шапка действия: тип · дата · автор · исход #}
+                <div class="flex items-center justify-between flex-wrap gap-2 px-4 py-2.5
+                            {% if log.outcome == 'agreed' %}bg-emerald-50
+                            {% elif log.outcome == 'refused' %}bg-red-50
+                            {% elif log.outcome == 'sent_kp' %}bg-purple-50
+                            {% endif %}">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        {% set type_meta = {'call': ('📞', 'Звонок'), 'email': ('✉️', 'Email'), 'visit': ('🤝', 'Визит'), 'message': ('💬', 'Сообщение')} %}
+                        {% set meta = type_meta.get(log.contact_type, ('📞', log.contact_type)) %}
+                        <span class="text-sm">{{ meta[0] }}</span>
+                        <span class="text-sm font-medium text-ink">{{ meta[1] }}</span>
+                        <span class="text-xs text-muted">· {{ log.contact_date.strftime('%d.%m.%Y %H:%M') }}</span>
+                        {% if log.user %}
+                        <span class="text-xs text-muted">· {{ log.user.full_name }}</span>
+                        {% endif %}
+                    </div>
+                    {% if log.outcome %}
+                    {% set outcome_meta = {'no_answer': 'Не дозвон', 'busy': 'Занято', 'callback': 'Перезвонить', 'agreed': 'Договорились', 'refused': 'Отказ', 'sent_kp': 'КП отправлено'} %}
+                    <span class="text-xs px-2 py-0.5 rounded-lg font-medium
+                        {% if log.outcome == 'agreed' %}bg-emerald-100 text-emerald-700
+                        {% elif log.outcome == 'refused' %}bg-red-100 text-red-700
+                        {% elif log.outcome == 'sent_kp' %}bg-purple-100 text-purple-700
+                        {% elif log.outcome == 'callback' %}bg-blue-100 text-blue-700
+                        {% else %}bg-slate-200 text-muted{% endif %}">
+                        {{ outcome_meta.get(log.outcome, log.outcome) }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# Тело: результат действия #}
+                <div class="px-4 py-3 text-sm text-ink whitespace-pre-wrap">{{ log.result }}</div>
+
+                {# Привязанный комментарий #}
+                {% if log.comment %}
+                <div class="px-4 pb-3">
+                    <div class="bg-white border border-black/5 rounded-lg p-3">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                            </svg>
+                            <span class="text-xs text-muted">{{ log.comment.user.full_name if log.comment.user else '—' }}</span>
+                        </div>
+                        <div class="text-sm text-ink whitespace-pre-wrap">{{ log.comment.body }}</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# Привязанная задача #}
+                {% if log.task %}
+                <div class="px-4 pb-3">
+                    {% set task = log.task %}
+                    <div class="bg-white border border-black/5 rounded-lg p-3" id="task-{{ task.id }}">
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/>
+                                </svg>
+                                <span class="text-sm font-medium text-ink truncate">{{ task.title }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                {% if task.due_date %}
+                                <span class="text-xs text-muted">{{ task.due_date.strftime('%d.%m %H:%M') }}</span>
+                                {% endif %}
+                                <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                                        name="status" class="text-xs border border-black/10 rounded-lg px-1.5 py-1 text-ink bg-white">
+                                    <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
+                                    <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
+                                    <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>
+                                    <option value="cancelled" {% if task.status=='cancelled' %}selected{% endif %}>Отменено</option>
+                                </select>
+                                <button hx-delete="/api/tasks/{{ task.id }}" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                                        hx-confirm="Удалить задачу?"
+                                        class="text-muted hover:text-red-600 p-0.5" title="Удалить">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# Следующее действие (если есть) #}
+                {% if log.next_action_date and not log.task %}
+                <div class="px-4 pb-3 text-xs text-blue-600 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    Следующее действие: {{ log.next_action_date.strftime('%d.%m.%Y') }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# ═══ СВОБОДНЫЙ КОММЕНТАРИЙ (без действия) ═══ #}
+            {% elif entry.kind == 'comment' %}
+            {% set comment = entry.comment %}
+            <div class="bg-white border border-black/10 rounded-xl p-4">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                    </svg>
+                    <span class="text-sm font-medium text-ink">{{ comment.user.full_name if comment.user else '—' }}</span>
+                    <span class="text-xs text-muted">· {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+                <div class="text-sm text-ink whitespace-pre-wrap">{{ comment.body }}</div>
+            </div>
+
+            {# ═══ СВОБОДНАЯ ЗАДАЧА (без действия) ═══ #}
+            {% elif entry.kind == 'task' %}
+            {% set task = entry.task %}
+            <div class="flex items-center justify-between gap-2 p-3 bg-white rounded-xl border border-black/10" id="task-{{ task.id }}">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                        </svg>
+                        <span class="text-sm font-medium text-ink">{{ task.title }}</span>
+                    </div>
+                    <div class="text-xs text-muted mt-1 ml-5">
+                        {% if task.due_date %}{{ task.due_date.strftime('%d.%m.%Y %H:%M') }}{% else %}без срока{% endif %}
+                        {% if task.priority == 1 %} · <span class="text-red-600">Высокий</span>{% elif task.priority == 3 %} · <span class="text-muted">Низкий</span>{% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <select hx-post="/api/tasks/{{ task.id }}/status" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                            name="status" class="text-xs border border-black/10 rounded-lg px-1.5 py-1 text-ink bg-white">
+                        <option value="pending" {% if task.status=='pending' %}selected{% endif %}>Ожидает</option>
+                        <option value="in_progress" {% if task.status=='in_progress' %}selected{% endif %}>В работе</option>
+                        <option value="done" {% if task.status=='done' %}selected{% endif %}>Готово</option>
+                        <option value="cancelled" {% if task.status=='cancelled' %}selected{% endif %}>Отменено</option>
+                    </select>
+                    <button hx-delete="/api/tasks/{{ task.id }}" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+                            hx-confirm="Удалить задачу?"
+                            class="text-muted hover:text-red-600 p-1" title="Удалить">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function openJournalForm() {
+    openDrawer('/leads/{{ lead.id }}/journal/form', 'Записать действие');
+}
+</script>

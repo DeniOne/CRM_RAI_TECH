@@ -140,7 +140,17 @@ class ContactLog(Base):
     next_action_date: Mapped[Optional[date]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+    # Связь с опциональным комментарием и задачей в едином Журнале
+    comment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("comments.id", ondelete="SET NULL"), nullable=True
+    )
+    task_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+
     lead: Mapped["Lead"] = relationship(back_populates="contact_logs")
+    comment: Mapped[Optional["Comment"]] = relationship(foreign_keys=[comment_id])
+    task: Mapped[Optional["Task"]] = relationship(foreign_keys=[task_id])
 
 
 class Comment(Base):

@@ -263,8 +263,10 @@ async def lead_card(request: Request, lead_id: int, session: AsyncSession = Depe
     result = await session.execute(
         select(Lead).where(Lead.id == lead_id).options(
             selectinload(Lead.contacts),
-            selectinload(Lead.contact_logs),
-            selectinload(Lead.comments),
+            selectinload(Lead.contact_logs).selectinload(ContactLog.user),
+            selectinload(Lead.contact_logs).selectinload(ContactLog.comment),
+            selectinload(Lead.contact_logs).selectinload(ContactLog.task),
+            selectinload(Lead.comments).selectinload(Comment.user),
             selectinload(Lead.tasks),
             selectinload(Lead.region),
             selectinload(Lead.documents),
@@ -278,6 +280,8 @@ async def lead_card(request: Request, lead_id: int, session: AsyncSession = Depe
     users_result = await session.execute(select(User).where(User.is_active == True))
     users = users_result.scalars().all()
 
+    entries = _build_journal_entries(lead)
+
     return templates.TemplateResponse(
         request=request,
         name="lead_card.html",
@@ -286,6 +290,7 @@ async def lead_card(request: Request, lead_id: int, session: AsyncSession = Depe
             "lead": lead,
             "stage_label": STAGE_LABELS.get(lead.stage, lead.stage),
             "users": users,
+            "entries": entries,
         },
     )
 
@@ -651,6 +656,212 @@ async def add_comment(
     )
 
 
+async def _render_journal(request, session: AsyncSession, lead_id: int, user):
+    """Перерисовывает единый Журнал (HTMX-ответ после добавления записи).
+
+    Собирает ленту из contact_logs (с привязанными comment/task) + свободных
+    comment/task. Для сортировки и eager-load использует повторный запрос лида.
+    """
+    from app.main import templates
+
+    result = await session.execute(
+        select(Lead).where(Lead.id == lead_id).options(
+            selectinload(Lead.contact_logs).selectinload(ContactLog.user),
+            selectinload(Lead.contact_logs).selectinload(ContactLog.comment),
+            selectinload(Lead.contact_logs).selectinload(ContactLog.task),
+            selectinload(Lead.comments).selectinload(Comment.user),
+            selectinload(Lead.tasks),
+        )
+    )
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404)
+
+    entries = _build_journal_entries(lead)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/journal_list.html",
+        context={
+            "current_user": user,
+            "lead": lead,
+            "entries": entries,
+        },
+    )
+
+
+def _build_journal_entries(lead: Lead) -> list[dict]:
+    """Строит единый список записей Журнала из contact_logs + свободных comment/task.
+
+    Главная ось — ContactLog (действие). К нему привязываются comment/task если есть.
+    Свободные Comment/Task (без привязки к ContactLog) показываются как отдельные блоки.
+    Сортировка: новые сверху (по дате действия/создания).
+    """
+    # Собираем id, уже привязанных к действиям, чтобы исключить их из «свободных»
+    bound_comment_ids = {
+        log.comment_id for log in lead.contact_logs if log.comment_id is not None
+    }
+    bound_task_ids = {
+        log.task_id for log in lead.contact_logs if log.task_id is not None
+    }
+
+    entries = []
+
+    # 1. Действия (ContactLog) — основная ось
+    for log in lead.contact_logs:
+        entries.append({
+            "kind": "action",
+            "sort_key": log.contact_date,
+            "log": log,
+        })
+
+    # 2. Свободные комментарии (не привязанные к действию)
+    for comment in lead.comments:
+        if comment.id in bound_comment_ids:
+            continue
+        entries.append({
+            "kind": "comment",
+            "sort_key": comment.created_at,
+            "comment": comment,
+        })
+
+    # 3. Свободные задачи (не привязанные к действию)
+    for task in lead.tasks:
+        if task.id in bound_task_ids:
+            continue
+        entries.append({
+            "kind": "task",
+            "sort_key": task.created_at,
+            "task": task,
+        })
+
+    # Сортировка: новые сверху; None (без даты) — в конце
+    entries.sort(key=lambda e: e["sort_key"] or datetime.min, reverse=True)
+    return entries
+
+
+@router.post("/leads/{lead_id}/journal-entry", response_class=HTMLResponse)
+async def add_journal_entry(
+    request: Request,
+    lead_id: int,
+    # Действие (обязательно)
+    contact_type: str = Form("call"),
+    result: str = Form(...),
+    outcome: str = Form(""),
+    next_action_date: str = Form(""),
+    # Комментарий (опционально)
+    comment_body: str = Form(""),
+    # Задача (опционально)
+    task_title: str = Form(""),
+    task_due_date: str = Form(""),
+    task_priority: int = Form(2),
+    notify_hermes: bool = Form(False),
+    session: AsyncSession = Depends(get_session),
+):
+    """Единая форма Журнала: создаёт действие + опционально комментарий и задачу.
+
+    Действие (ContactLog) обязательно. Если заполнен comment_body — создаётся
+    Comment и привязывается к ContactLog.comment_id. Если заполнен task_title —
+    создаётся Task и привязывается к ContactLog.task_id.
+    """
+    from app.services.hermes_service import send_to_hermes
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    lead_result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = lead_result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404)
+
+    result_text = result.strip()
+    if not result_text:
+        raise HTTPException(status_code=422, detail="Результат действия обязателен")
+
+    # Парсинг дат
+    next_date = None
+    if next_action_date:
+        try:
+            next_date = datetime.strptime(next_action_date, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    # 1. Комментарий (создаём до ContactLog, чтобы знать его id)
+    new_comment = None
+    comment_text = comment_body.strip()
+    if comment_text:
+        new_comment = Comment(
+            lead_id=lead_id,
+            user_id=user.id,
+            body=comment_text,
+        )
+        session.add(new_comment)
+        await session.flush()  # получаем id
+
+    # 2. Задача (если указан заголовок ИЛИ дата следующего действия)
+    new_task = None
+    task_name = task_title.strip()
+    # Если явного заголовка нет, но есть next_action_date — автозаголовок «Перезвонить»
+    if not task_name and next_date:
+        task_name = f"Перезвонить: {lead.name}"
+    if task_name:
+        # Срок: явный task_due_date, иначе next_action_date на 00:00
+        due_dt = None
+        if task_due_date:
+            try:
+                due_dt = datetime.strptime(task_due_date, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                due_dt = None
+        if not due_dt and next_date:
+            due_dt = datetime.combine(next_date, datetime.min.time())
+
+        new_task = Task(
+            lead_id=lead_id,
+            assigned_to=user.id,
+            created_by=user.id,
+            title=task_name,
+            due_date=due_dt,
+            priority=task_priority if task_priority in (1, 2, 3) else 2,
+            status="pending",
+        )
+        session.add(new_task)
+        await session.flush()
+
+    # 3. Действие (ContactLog) — главная ось, привязываем comment/task
+    log = ContactLog(
+        lead_id=lead_id,
+        user_id=user.id,
+        contact_type=contact_type,
+        contact_date=datetime.now(),
+        result=result_text,
+        outcome=outcome or None,
+        next_action_date=next_date,
+        comment_id=new_comment.id if new_comment else None,
+        task_id=new_task.id if new_task else None,
+    )
+    session.add(log)
+    await session.commit()
+
+    # Уведомление Hermes о новой задаче
+    if new_task and notify_hermes:
+        hermes_msg = f"Создана задача: {new_task.title}"
+        if new_task.due_date:
+            hermes_msg += f" (срок: {new_task.due_date.strftime('%d.%m.%Y %H:%M')})"
+        hermes_msg += f" для лида {lead.name}"
+        try:
+            await send_to_hermes(
+                message=f"Напомни мне: {hermes_msg}",
+                user_id=user.id,
+                user_name=user.full_name,
+                role=user.role.value,
+                context_lead_id=lead_id,
+            )
+        except Exception:
+            pass  # Hermes недоступен — не блокируем запись в Журнал
+
+    return await _render_journal(request, session, lead_id, user)
+
+
 @router.post("/leads/{lead_id}/assign", response_class=HTMLResponse)
 async def assign_manager(
     request: Request,
@@ -708,6 +919,17 @@ async def contact_log_form(request: Request, lead_id: int, session: AsyncSession
     return templates.TemplateResponse(
         request=request,
         name="partials/contact_log_form.html",
+        context={"current_user": user, "lead_id": lead_id},
+    )
+
+
+@router.get("/leads/{lead_id}/journal/form", response_class=HTMLResponse)
+async def journal_form(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+    from app.main import templates
+    user = await get_current_user(request, session)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/journal_form.html",
         context={"current_user": user, "lead_id": lead_id},
     )
 
