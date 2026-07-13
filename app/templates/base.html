@@ -78,6 +78,40 @@
         </main>
     </div>
     <div id="task-ticker" class="ticker-bar"></div>
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+    <script>
+    function showToast(message, type) {
+        type = type || 'success';
+        var container = document.getElementById('toast-container');
+        var toast = document.createElement('div');
+        var colors = {
+            success: 'bg-emerald-600 text-white',
+            error: 'bg-red-600 text-white',
+            info: 'bg-slate-800 text-white'
+        };
+        toast.className = 'px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ' + (colors[type] || colors.success);
+        toast.textContent = message;
+        container.appendChild(toast);
+        requestAnimationFrame(function() {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+        setTimeout(function() {
+            toast.classList.add('translate-y-2', 'opacity-0');
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 3000);
+    }
+    </script>
+    <script>
+    document.addEventListener('htmx:afterRequest', function(e) {
+        var form = e.detail.elt;
+        if (form && form.closest && form.closest('#drawer-content')) {
+            var path = form.getAttribute('hx-post') || '';
+            if (path.indexOf('/journal-entry') !== -1) {
+                showToast('Запись создана');
+            }
+        }
+    });
+    </script>
     <div id="drawer-overlay" class="fixed inset-0 bg-black/20 z-40 hidden" onclick="closeDrawer()"></div>
     <div id="drawer" class="fixed inset-y-0 right-0 w-96 bg-white border-l border-black/10 z-50 transform translate-x-full transition-transform duration-200 overflow-y-auto">
         <div id="drawer-content"></div>
