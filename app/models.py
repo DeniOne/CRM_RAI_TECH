@@ -165,6 +165,7 @@ class Comment(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     lead: Mapped["Lead"] = relationship(back_populates="comments")
+    user: Mapped[Optional["User"]] = relationship(foreign_keys=[user_id])
 
 
 class Task(Base):

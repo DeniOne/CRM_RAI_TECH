@@ -117,7 +117,8 @@ def inn_matches_region(inn: str, region_name: str | None) -> bool:
     return inn[:2] in codes
 
 
-async def enrich_one(client: httpx.AsyncClient, lead: Lead, region_name: str | None) -> dict:
+async def enrich_one(client: httpx.AsyncClient, lead: Lead, region_name: str | None,
+                     fallback_no_region: bool = False) -> dict:
     """
     Обогащает один лид через DaData. Возвращает отчёт по операции:
     {"status": "updated"|"unmatched"|"error", "matched_name": ..., "fields": [...], "detail": ...}
@@ -125,6 +126,11 @@ async def enrich_one(client: httpx.AsyncClient, lead: Lead, region_name: str | N
     Защита от ложных совпадений: DaData locations/restrict_value ненадёжно фильтруют
     по региону, поэтому после поиска проверяем код региона по первым 2 цифрам ИНН.
     Если ИНН не из нужного региона — считаем unmatched (не записываем ложные данные).
+
+    fallback_no_region: если первый запрос (с region) не дал in-region совпадения,
+    делаем повторный запрос БЕЗ region-фильтра. Это находит компании, которые DaData
+    не связала с регионом, но проверка inn_matches_region всё равно отсечёт ложные
+    совпадения (компании с тем же названием из других регионов).
     """
     query = clean_query(lead.name)
     if not query:
@@ -141,6 +147,17 @@ async def enrich_one(client: httpx.AsyncClient, lead: Lead, region_name: str | N
         suggestions = resp.json().get("suggestions", [])
     except Exception as e:
         return {"status": "error", "detail": f"HTTP: {e}"}
+
+    if not suggestions and fallback_no_region:
+        # Повтор без region-фильтра — проверка inn_matches_region ниже отсечёт ложные.
+        try:
+            resp = await client.post(
+                DADATA_FIND_URL, json={"query": query, "count": 1}, headers=_headers()
+            )
+            resp.raise_for_status()
+            suggestions = resp.json().get("suggestions", [])
+        except Exception as e:
+            return {"status": "error", "detail": f"HTTP (fallback): {e}"}
 
     if not suggestions:
         return {"status": "unmatched", "query": query, "region": region_name, "reason": "no hits"}
@@ -190,6 +207,8 @@ async def main() -> int:
     parser.add_argument("--region-id", type=int, default=None, help="Только лиды этого региона")
     parser.add_argument("--dry-run", action="store_true", help="Без записи в БД, только отчёт")
     parser.add_argument("--limit", type=int, default=None, help="Ограничить кол-во (для теста)")
+    parser.add_argument("--fallback-no-region", action="store_true",
+                        help="Для unmatched — повтор без region-фильтра (проверка ИНН по коду региона остаётся)")
     args = parser.parse_args()
 
     await init_db()
@@ -226,7 +245,8 @@ async def main() -> int:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             for i, lead in enumerate(leads, 1):
                 region_name = region_names.get(lead.region_id)
-                report = await enrich_one(client, lead, region_name)
+                report = await enrich_one(client, lead, region_name,
+                                        fallback_no_region=args.fallback_no_region)
                 report["lead_id"] = lead.id
                 report["lead_name"] = lead.name
                 report["region"] = region_name
