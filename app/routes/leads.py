@@ -790,13 +790,19 @@ async def add_journal_entry(
     if dup_q.scalar_one_or_none() is not None:
         return await _render_journal(request, session, lead_id, user)
 
-    # Дата действия: из формы, иначе сейчас
-    when = datetime.now()
+    # Дата действия: из формы (дата) + текущее время системы.
+    # <input type=date> отдаёт только YYYY-MM-DD — если поставить через
+    # strptime("%Y-%m-%d"), время обнулится в 00:00 и все записи одного
+    # дня будут одинаково датированы (ломает сортировку и отображение).
+    now = datetime.now()
     if action_date:
         try:
-            when = datetime.strptime(action_date, "%Y-%m-%d")
+            d = datetime.strptime(action_date, "%Y-%m-%d")
+            when = d.replace(hour=now.hour, minute=now.minute, second=now.second)
         except ValueError:
-            pass
+            when = now
+    else:
+        when = now
 
     # Задача (если указан заголовок)
     new_task = None
