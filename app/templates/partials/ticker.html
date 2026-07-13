@@ -1,9 +1,11 @@
-{# Бегущая строка задач. Цвет чипа = статус. #}
-{# Менеджер: два ряда (сегодня+завтра / просроченные). Руководитель: один ряд. #}
+{# Бегущая строка задач. Цвет чипа = статус.
+   Показывает только актуальные + просроченные задачи текущих рабочих суток
+   исполнителя (по его TZ). Будущее отсечено. #}
+{# Менеджер: два ряда (сегодня / просроченные). Руководитель: один ряд. #}
 
 {% if is_manager %}
 
-{# ---- ВЕРХНИЙ РЯД: сегодня + завтра ---- #}
+{# ---- ВЕРХНИЙ РЯД: сегодня (включая без срока) ---- #}
 <div class="ticker-row ticker-row-top">
     <span class="ticker-label">Сегодня</span>
     <div class="ticker-window">
@@ -11,23 +13,7 @@
             {% for t in today_tasks %}
             {% include "partials/_ticker_chip.html" %}
             {% endfor %}
-            {% if tomorrow_tasks %}
-            <span class="ticker-sep">Завтра</span>
-            {% for t in tomorrow_tasks %}
-            {% if t.lead %}
-            <a href="/leads/{{ t.lead.id }}" class="ticker-item ticker-clickable ticker-tomorrow" title="Завтра · {{ t.title }} — открыть карточку">
-                {{ t.title }} · {{ t.lead.name }}
-                {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
-            </a>
-            {% else %}
-            <span class="ticker-item ticker-tomorrow" title="Завтра · {{ t.title }}">
-                {{ t.title }}
-                {% if t.due_date %} · {{ t.due_date.strftime('%H:%M') }}{% endif %}
-            </span>
-            {% endif %}
-            {% endfor %}
-            {% endif %}
-            {% if not today_tasks and not tomorrow_tasks %}
+            {% if not today_tasks %}
             <span class="ticker-empty">Задач на сегодня нет</span>
             {% endif %}
         </div>
@@ -60,9 +46,9 @@
 
 {% else %}
 
-{# ---- РУКОВОДИТЕЛЬ: один ряд, все задачи всех менеджеров ---- #}
+{# ---- РУКОВОДИТЕЛЬ: один ряд, просроченные + сегодняшние всех менеджеров ---- #}
 <div class="ticker-row ticker-row-top">
-    <span class="ticker-label">Все задачи</span>
+    <span class="ticker-label">Сегодня и просроченные</span>
     <div class="ticker-window">
         <div class="ticker-track">
             {% if all_tasks %}

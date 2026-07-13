@@ -20,9 +20,17 @@
                 <input type="password" name="password" required
                     class="w-full px-3 py-2 border border-black/10 rounded-lg text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/20">
             </div>
+            <input type="hidden" name="timezone" id="tz-field" value="Europe/Moscow">
             <button type="submit"
                 class="w-full bg-ink text-white py-2 rounded-lg text-sm hover:bg-ink/90 transition">Войти</button>
         </form>
+        <script>
+        // Часовой пояс из браузера — для корректного отображения «сегодня» в тикере.
+        try {
+            var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) document.getElementById('tz-field').value = tz;
+        } catch (e) { /* fallback Europe/Moscow уже в value */ }
+        </script>
     </div>
 </div>
 {% endblock %}

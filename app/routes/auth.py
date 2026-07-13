@@ -5,12 +5,29 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from zoneinfo import ZoneInfo
 
 from app.auth import authenticate_user, set_session, clear_session, hash_password
 from app.database import get_session
 from app.models import User, UserRole, Invite, InvitePurpose
+from app.tz_utils import DEFAULT_TZ
 
 router = APIRouter()
+
+
+def _valid_timezone(value: str | None) -> str | None:
+    """Возвращает IANA-имя зоны, если value валидно, иначе None.
+
+    Принимает строку из браузера (Intl.DateTimeFormat().resolvedOptions().timeZone)
+    и проверяет, что ZoneInfo её разборачивает. Защищает от мусора в форме.
+    """
+    if not value:
+        return None
+    try:
+        ZoneInfo(value)
+        return value
+    except Exception:
+        return None
 
 
 @router.get("/login")
@@ -24,12 +41,21 @@ async def login_submit(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    timezone: str = Form(None),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
     user = await authenticate_user(session, email, password)
     if not user:
         return templates.TemplateResponse(request=request, name="login.html", context={"error": "Неверный email или пароль"})
+
+    # Сохраняем TZ из браузера только при первом входе (timezone IS NULL),
+    # чтобы не затирать зону, выставленную вручную.
+    tz = _valid_timezone(timezone)
+    if tz and user.timezone is None:
+        user.timezone = tz
+        await session.commit()
+
     response = RedirectResponse("/", status_code=303)
     set_session(response, user.id)
     return response
@@ -94,6 +120,7 @@ async def invite_accept_submit(
     full_name: str = Form(""),
     password: str = Form(...),
     password_confirm: str = Form(...),
+    timezone: str = Form(None),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -106,6 +133,9 @@ async def invite_accept_submit(
             name="invite_accept.html",
             context={"error": str(e), "invite": None, "role_label": ""},
         )
+
+    # Валидный IANA из браузера (фолбэк на дефолт, если не пришёл/битый).
+    tz = _valid_timezone(timezone) or DEFAULT_TZ
 
     if password != password_confirm:
         return templates.TemplateResponse(
@@ -148,6 +178,7 @@ async def invite_accept_submit(
             full_name=full_name.strip() or invite.email.split("@")[0],
             role=invite.role,
             is_active=True,
+            timezone=tz,
         )
         session.add(user)
 
@@ -166,6 +197,9 @@ async def invite_accept_submit(
             )
         user.password_hash = hash_password(password)
         user.is_active = True
+        # При сбросе пароля тоже подхватываем зону из браузера, если её нет.
+        if user.timezone is None:
+            user.timezone = tz
 
     invite.used_at = datetime.now()
     await session.flush()

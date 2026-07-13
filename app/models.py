@@ -28,6 +28,9 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.manager)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # IANA-имя часового пояса (Europe/Moscow, Asia/Vladivostok…).
+    # NULL → код трактует как DEFAULT_TZ (Europe/Moscow).
+    timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

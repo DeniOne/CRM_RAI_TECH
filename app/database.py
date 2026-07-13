@@ -68,6 +68,17 @@ async def init_db():
                     sqlalchemy_text(f"ALTER TABLE contact_logs ADD COLUMN {col_name} {col_type}")
                 )
 
+    # Миграция: часовой пояс пользователя (IANA-имя). NULL → Europe/Moscow.
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(
+            sqlalchemy_text("PRAGMA table_info(users)")
+        )
+        existing_cols = {row[1] for row in existing.fetchall()}
+        if "timezone" not in existing_cols:
+            await conn.execute(
+                sqlalchemy_text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64)")
+            )
+
     # Create default admin
     async with async_session_maker() as session:
         from app.auth import create_default_admin
