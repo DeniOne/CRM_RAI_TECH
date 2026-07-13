@@ -64,9 +64,49 @@
     {% endif %}
 </form>
 
-<div id="kanban-board" class="flex gap-3 overflow-x-auto pb-4">
-    {% include "partials/kanban_board.html" %}
+<div id="kanban-wrapper" class="flex flex-col" style="height: calc(100vh - 200px); min-height: 300px;">
+    <div id="kanban-board" class="flex gap-3 overflow-x-auto overflow-y-hidden flex-1 min-h-0" style="scrollbar-height: none; -ms-overflow-style: none;">
+        {% include "partials/kanban_board.html" %}
+    </div>
+    <div id="kanban-scrollbar" class="h-5 mt-1 overflow-x-auto overflow-y-hidden flex-shrink-0" style="z-index: 31;">
+        <div id="kanban-scrollbar-inner" style="height: 6px; min-width: 100%; background: #e2e8f0; border-radius: 3px;"></div>
+    </div>
 </div>
 
+<style>
+#kanban-board::-webkit-scrollbar { display: none; }
+#kanban-scrollbar::-webkit-scrollbar { height: 6px; }
+#kanban-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+#kanban-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.kanban-column { overflow-y: auto; max-height: 100%; }
+.kanban-column::-webkit-scrollbar { width: 4px; }
+.kanban-column::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+</style>
+
 <script src="/static/js/kanban.js"></script>
+<script>
+(function() {
+    var board = document.getElementById('kanban-board');
+    var scrollBar = document.getElementById('kanban-scrollbar');
+    var scrollInner = document.getElementById('kanban-scrollbar-inner');
+    if (!board || !scrollBar || !scrollInner) return;
+
+    function syncScrollbar() {
+        scrollInner.style.width = board.scrollWidth + 'px';
+        scrollBar.scrollLeft = board.scrollLeft;
+    }
+
+    board.addEventListener('scroll', function() {
+        scrollBar.scrollLeft = board.scrollLeft;
+    });
+
+    scrollBar.addEventListener('scroll', function() {
+        board.scrollLeft = scrollBar.scrollLeft;
+    });
+
+    syncScrollbar();
+    new MutationObserver(syncScrollbar).observe(board, { childList: true, subtree: true });
+    window.addEventListener('resize', syncScrollbar);
+})();
+</script>
 {% endblock %}
