@@ -23,14 +23,22 @@ router = APIRouter()
 async def kanban(
     request: Request,
     manager: str = None,
-    region: int = None,
+    region: str = None,
     level: str = None,
-    priority: int = None,
+    priority: str = None,
     assigned_manager: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    # HTML-форма шлёт пустые строки для невыбранных <select>; приводим к None.
+    region = int(region) if region and region.isdigit() else None
+    priority = int(priority) if priority and priority.isdigit() else None
+    # level: однобуквенный A/B/C или пусто
+    level = level.strip() if level else None
 
     if manager is None:
         manager = "my" if user.role.value == "manager" else "all"
