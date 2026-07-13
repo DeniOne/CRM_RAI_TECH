@@ -64,21 +64,89 @@
     {% endif %}
 </form>
 
-<div id="kanban-board" class="flex gap-3 overflow-x-auto overflow-y-hidden" style="scrollbar-width: none; -ms-overflow-style: none; height: calc(100vh - 210px); min-height: 300px;">
-    {% include "partials/kanban_board.html" %}
-</div>
-
-<div id="kanban-scrollbar" style="position: fixed; bottom: 86px; left: 0; right: 0; z-index: 31; height: 20px; background: white; border-top: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; padding: 0 20px;">
-    <div id="kanban-scrollbar-inner" style="height: 6px; min-width: 100%; background: #e2e8f0; border-radius: 3px; overflow-x: auto; overflow-y: hidden;">
-        <div style="height: 1px;"></div>
+<div id="kanban-container" class="relative" style="height: calc(100vh - 200px); min-height: 300px;">
+    <div id="kanban-board" class="flex gap-3 overflow-x-auto overflow-y-hidden h-full" style="scrollbar-width: none; -ms-overflow-style: none;">
+        {% include "partials/kanban_board.html" %}
     </div>
+
+    {# ─── Стрелки навигации ─── #}
+    <button id="kanban-arrow-left"
+            class="kanban-arrow kanban-arrow-left"
+            onclick="kanbanScroll(-1)"
+            onmousedown="kanbanScrollStart(-1)"
+            onmouseup="kanbanScrollStop()"
+            onmouseleave="kanbanScrollStop()">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <button id="kanban-arrow-right"
+            class="kanban-arrow kanban-arrow-right"
+            onclick="kanbanScroll(1)"
+            onmousedown="kanbanScrollStart(1)"
+            onmouseup="kanbanScrollStop()"
+            onmouseleave="kanbanScrollStop()">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
 </div>
 
 <style>
-#kanban-board::-webkit-scrollbar { display: none; }
-#kanban-scrollbar-inner::-webkit-scrollbar { height: 6px; }
-#kanban-scrollbar-inner::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-#kanban-scrollbar-inner::-webkit-scrollbar-track { background: transparent; }
+/* Зоны-триггеры по краям контейнера */
+#kanban-container:hover .kanban-arrow-left { opacity: 1; pointer-events: auto; }
+#kanban-container:hover .kanban-arrow-right { opacity: 1; pointer-events: auto; }
+
+.kanban-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid rgba(0,0,0,0.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #030213;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, box-shadow 0.2s, background 0.15s;
+}
+.kanban-arrow:hover {
+    background: #f1f5f9;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.kanban-arrow:active {
+    background: #e2e8f0;
+}
+.kanban-arrow-left { left: 8px; }
+.kanban-arrow-right { right: 8px; }
+
+/* Тонкая полоска-подсказка у края при наведении */
+#kanban-container::before,
+#kanban-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+#kanban-container::before {
+    left: 0;
+    background: linear-gradient(to right, rgba(248,250,252,0.9), transparent);
+}
+#kanban-container::after {
+    right: 0;
+    background: linear-gradient(to left, rgba(248,250,252,0.9), transparent);
+}
+#kanban-container:hover::before,
+#kanban-container:hover::after { opacity: 1; }
+
 .kanban-column { overflow-y: auto; max-height: 100%; }
 .kanban-column::-webkit-scrollbar { width: 4px; }
 .kanban-column::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
@@ -86,28 +154,23 @@
 
 <script src="/static/js/kanban.js"></script>
 <script>
-(function() {
-    var board = document.getElementById('kanban-board');
-    var scrollInner = document.getElementById('kanban-scrollbar-inner');
-    if (!board || !scrollInner) return;
+var kanbanBoard = document.getElementById('kanban-board');
+var kanbanTimer = null;
 
-    // Make the inner div wide enough to scroll
-    function sync() {
-        var child = scrollInner.firstElementChild;
-        if (child) child.style.width = board.scrollWidth + 'px';
-    }
+function kanbanScroll(dir) {
+    if (!kanbanBoard) return;
+    kanbanBoard.scrollBy({ left: dir * 300, behavior: 'smooth' });
+}
 
-    board.addEventListener('scroll', function() {
-        scrollInner.scrollLeft = board.scrollLeft;
-    });
+function kanbanScrollStart(dir) {
+    if (!kanbanBoard) return;
+    kanbanTimer = setInterval(function() {
+        kanbanBoard.scrollLeft += dir * 8;
+    }, 16);
+}
 
-    scrollInner.addEventListener('scroll', function() {
-        board.scrollLeft = scrollInner.scrollLeft;
-    });
-
-    sync();
-    new MutationObserver(sync).observe(board, { childList: true, subtree: true });
-    window.addEventListener('resize', sync);
-})();
+function kanbanScrollStop() {
+    if (kanbanTimer) { clearInterval(kanbanTimer); kanbanTimer = null; }
+}
 </script>
 {% endblock %}
