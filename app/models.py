@@ -149,6 +149,7 @@ class ContactLog(Base):
     )
 
     lead: Mapped["Lead"] = relationship(back_populates="contact_logs")
+    user: Mapped[Optional["User"]] = relationship(foreign_keys=[user_id])
     comment: Mapped[Optional["Comment"]] = relationship(foreign_keys=[comment_id])
     task: Mapped[Optional["Task"]] = relationship(foreign_keys=[task_id])
 
