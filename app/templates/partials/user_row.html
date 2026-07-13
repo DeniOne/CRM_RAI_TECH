@@ -1,3 +1,4 @@
+<tbody id="user-block-{{ u.id }}">
 <tr id="user-row-{{ u.id }}" class="border-b border-black/5">
     <td class="py-3 px-4">
         <div class="text-sm font-medium text-ink">{{ u.full_name }}</div>
@@ -7,7 +8,8 @@
     </td>
     <td class="py-3 px-4 text-sm text-muted font-mono">{{ u.email }}</td>
     <td class="py-3 px-4">
-        <form hx-post="/admin/users/{{ u.id }}/role" hx-target="#user-row-{{ u.id }}" hx-swap="outerHTML"
+        {% if current_user.role.value == 'admin' %}
+        <form hx-post="/admin/users/{{ u.id }}/role" hx-target="#user-block-{{ u.id }}" hx-swap="outerHTML"
               class="inline-block">
             <select name="role" onchange="this.form.dispatchEvent(new Event('submit', {bubbles:true}))"
                     class="border border-black/10 rounded-lg px-2 py-1 text-sm text-ink bg-white"
@@ -17,6 +19,19 @@
                 {% endfor %}
             </select>
         </form>
+        {% else %}
+        <span class="text-sm text-ink">{{ role_labels[u.role.value] }}</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4">
+        {% if u.role.value == 'manager' %}
+            <button onclick="toggleRegions({{ u.id }})"
+                    class="text-xs text-blue-600 hover:text-blue-700">
+                Регионы ({{ u.regions|length }})
+            </button>
+        {% else %}
+        <span class="text-xs text-muted">—</span>
+        {% endif %}
     </td>
     <td class="py-3 px-4">
         {% if u.is_active %}
@@ -31,7 +46,7 @@
     </td>
     <td class="py-3 px-4">
         <div class="flex gap-1 flex-wrap">
-            {% if u.id != current_user.id %}
+            {% if current_user.role.value == 'admin' and u.id != current_user.id %}
             <button onclick="toggleActive({{ u.id }})"
                     class="text-xs {% if u.is_active %}text-red-600 hover:text-red-700{% else %}text-emerald-600 hover:text-emerald-700{% endif %}">
                 {% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}
@@ -52,3 +67,36 @@
         </div>
     </td>
 </tr>
+{% if u.role.value == 'manager' %}
+<tr id="regions-row-{{ u.id }}" class="hidden bg-slate-50/60">
+    <td colspan="6" class="py-4 px-6">
+        <div class="text-xs text-muted mb-1">Регионы менеджера (Ctrl/Cmd + клик для выбора нескольких)</div>
+        <form id="regions-form-{{ u.id }}"
+              hx-post="/admin/users/{{ u.id }}/regions"
+              hx-target="#user-block-{{ u.id }}" hx-swap="outerHTML"
+              class="flex items-start gap-2 flex-wrap">
+            <select name="regions" multiple size="8"
+                    class="border border-black/10 rounded-lg px-2 py-1.5 text-sm text-ink bg-white min-w-[280px] max-h-48">
+                {% for r in all_regions %}
+                <option value="{{ r.id }}"
+                    {% if r in u.regions %}selected{% endif %}>{{ r.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="flex flex-col gap-1.5">
+                <button type="submit"
+                        class="bg-ink text-white px-3 py-1.5 rounded-lg text-xs hover:bg-ink/90">
+                    Сохранить
+                </button>
+                <button type="button" onclick="toggleRegions({{ u.id }})"
+                        class="text-xs text-muted hover:text-ink px-2 py-1">
+                    Отмена
+                </button>
+            </div>
+        </form>
+        <div class="text-xs text-muted mt-1">
+            Пустой выбор = менеджер видит все регионы (по умолчанию).
+        </div>
+    </td>
+</tr>
+{% endif %}
+</tbody>

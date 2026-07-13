@@ -11,7 +11,7 @@ from app.auth import get_current_user, require_role, hash_password
 from app.config import settings
 from app.database import get_session
 from app.models import (
-    User, UserRole, Invite, InvitePurpose,
+    User, UserRole, Invite, InvitePurpose, Region,
     Lead, Task, Comment, ContactLog, Deal, Document, AgentMessage,
 )
 
@@ -77,10 +77,18 @@ async def users_page(
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
-    user = await require_role("admin")(request, session)
+    # Страница пользователей доступна admin и supervisor: supervisor назначает
+    # менеджерам регионы (но не меняет роли/пароли/удаление — те эндпоинты
+    # остаются admin-only).
+    user = await require_role("admin", "supervisor")(request, session)
 
-    users_result = await session.execute(select(User).order_by(User.created_at))
+    users_result = await session.execute(
+        select(User).options(selectinload(User.regions)).order_by(User.created_at)
+    )
     users = users_result.scalars().all()
+
+    all_regions_result = await session.execute(select(Region).order_by(Region.name))
+    all_regions = all_regions_result.scalars().all()
 
     invites_result = await session.execute(
         select(Invite).order_by(Invite.created_at.desc()).limit(20)
@@ -93,6 +101,7 @@ async def users_page(
         context={
             "current_user": user,
             "users": users,
+            "all_regions": all_regions,
             "invites": invites,
             "role_labels": ROLE_LABELS,
             "base_url": settings.APP_BASE_URL.rstrip("/"),
@@ -191,10 +200,13 @@ async def toggle_active(
     target.is_active = not target.is_active
     await session.commit()
 
+    all_regions_result = await session.execute(select(Region).order_by(Region.name))
+    all_regions = all_regions_result.scalars().all()
     return templates.TemplateResponse(
         request=request,
         name="partials/user_row.html",
-        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS},
+        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS,
+                 "all_regions": all_regions},
     )
 
 
@@ -232,7 +244,56 @@ async def change_role(
     return templates.TemplateResponse(
         request=request,
         name="partials/user_row.html",
-        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS},
+        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS,
+                 "all_regions": all_regions},
+    )
+
+
+# ─── Регионы менеджера ──────────────────────────────────────────────
+
+@router.post("/admin/users/{user_id}/regions", response_class=HTMLResponse)
+async def set_user_regions(
+    request: Request,
+    user_id: int,
+    regions: list[int] = Form(default=[]),
+    session: AsyncSession = Depends(get_session),
+):
+    """Назначить менеджеру набор регионов (M2M user↔region).
+
+    Доступ: admin + supervisor (supervisor не может менять роли/пароли, но
+    регионы раздавать может — решение владельца). Полная замена набора:
+    переданный список становится новым набором.
+    """
+    from app.main import templates
+    user = await require_role("admin", "supervisor")(request, session)
+
+    result = await session.execute(
+        select(User).options(selectinload(User.regions)).where(User.id == user_id)
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404)
+
+    # Регионы назначаем только менеджерам. admin/supervisor не имеют «своих»
+    # регионов — у них доступ ко всему.
+    if target.role != UserRole.manager:
+        raise HTTPException(status_code=422, detail="Регионы назначаются только менеджерам")
+
+    all_regions_result = await session.execute(select(Region).order_by(Region.name))
+    all_regions = all_regions_result.scalars().all()
+    region_ids = {r.id for r in all_regions}
+    # Фильтруем от подделки: только существующие id.
+    selected_ids = [rid for rid in regions if rid in region_ids]
+    selected = [r for r in all_regions if r.id in set(selected_ids)]
+
+    target.regions = selected
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/user_row.html",
+        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS,
+                 "all_regions": all_regions},
     )
 
 

@@ -20,6 +20,19 @@ from app.services.import_service import import_xlsx
 router = APIRouter()
 
 
+async def _regions_for_user(session: AsyncSession, user) -> list[Region]:
+    """Регионы для дропдауна фильтра канбана и формы создания лида.
+
+    admin/supervisor — все регионы; manager — только назначенные ему.
+    Если у менеджера пустой список регионов — возвращает все (безопасный дефолт:
+    никто не теряет данные, пока админ не разметит).
+    """
+    if user.role.value in ("admin", "supervisor") or not user.regions:
+        result = await session.execute(select(Region).order_by(Region.name))
+        return result.scalars().all()
+    return sorted(user.regions, key=lambda r: r.name)
+
+
 @router.get("/kanban", response_class=HTMLResponse)
 async def kanban(
     request: Request,
@@ -52,6 +65,11 @@ async def kanban(
     filters = [base_filter]
     if region:
         filters.append(Lead.region_id == region)
+    elif user.role.value == "manager" and user.regions:
+        # Менеджер с непустым набором регионов и без явного выбора региона в
+        # фильтре → показываем лиды только из закреплённых регионов. Иначе
+        # дропдаун scoped, а доска показала бы все лиды менеджера — рассинхрон.
+        filters.append(Lead.region_id.in_([r.id for r in user.regions]))
     if level:
         filters.append(Lead.level == level)
     if priority:
@@ -73,8 +91,9 @@ async def kanban(
         if lead.stage in leads_by_stage:
             leads_by_stage[lead.stage].append(lead)
 
-    regions_result = await session.execute(select(Region).order_by(Region.name))
-    regions = regions_result.scalars().all()
+    regions = await _regions_for_user(session, user)
+    # Флаг: список регионов сужен до назначенных менеджеру (для метки фильтра).
+    regions_scoped = user.role.value == "manager" and bool(user.regions)
 
     users_result = await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))
     users = users_result.scalars().all()
@@ -104,6 +123,7 @@ async def kanban(
             "current_user": user,
             "stages": stages_data,
             "regions": regions,
+            "regions_scoped": regions_scoped,
             "users": users,
             "manager": manager,
             "level": level,
@@ -135,8 +155,7 @@ async def lead_create_form(request: Request, session: AsyncSession = Depends(get
     from app.main import templates
     user = await get_current_user(request, session)
 
-    regions_result = await session.execute(select(Region).order_by(Region.name))
-    regions = regions_result.scalars().all()
+    regions = await _regions_for_user(session, user)
 
     users_result = await session.execute(select(User).where(User.is_active == True))
     users = users_result.scalars().all()
@@ -183,6 +202,12 @@ async def lead_create(
     if region_id:
         result = await session.execute(select(Region).where(Region.id == region_id))
         region = result.scalar_one_or_none()
+        # Серверная гарантия: менеджер с непустым набором регионов не может
+        # создать лида в чужом регионе (дропдаун формы scoped, но защита от
+        # подделки запроса). admin/supervisor и менеджер без набора — свободны.
+        if (region and user.role.value == "manager" and user.regions
+                and region.id not in {r.id for r in user.regions}):
+            raise HTTPException(status_code=403, detail="Регион не назначен вам")
     elif new_region.strip():
         region = await _get_or_create_region(session, new_region.strip())
 

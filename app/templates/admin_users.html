@@ -26,15 +26,14 @@
                     <th class="py-2 px-4 font-medium">Имя</th>
                     <th class="py-2 px-4 font-medium">Email</th>
                     <th class="py-2 px-4 font-medium">Роль</th>
+                    <th class="py-2 px-4 font-medium">Регионы</th>
                     <th class="py-2 px-4 font-medium">Статус</th>
                     <th class="py-2 px-4 font-medium">Действия</th>
                 </tr>
             </thead>
-            <tbody id="users-tbody">
-                {% for u in users %}
-                    {% include "partials/user_row.html" %}
-                {% endfor %}
-            </tbody>
+            {% for u in users %}
+                {% include "partials/user_row.html" %}
+            {% endfor %}
         </table>
     </div>
 </div>
@@ -112,13 +111,26 @@ function toggleActive(userId) {
             return r.text();
         })
         .then(function(html) {
-            var tmp = document.createElement('div');
-            tmp.innerHTML = html.trim();
-            var newRow = tmp.firstElementChild;
-            var oldRow = document.getElementById('user-row-' + userId);
-            if (oldRow && newRow) { oldRow.replaceWith(newRow); }
+            swapUserBlock(userId, html);
         })
         .catch(function(err) { alert(err.message); });
+}
+
+function toggleRegions(userId) {
+    var row = document.getElementById('regions-row-' + userId);
+    if (!row) return;
+    row.classList.toggle('hidden');
+}
+
+// Заменяет весь блок пользователя (<tbody id="user-block-{id}">) ответом сервера.
+// Используется toggleActive и HTMX-формами (role, regions).
+function swapUserBlock(userId, html) {
+    var table = document.querySelector('table');
+    var tmp = document.createElement('tbody');
+    tmp.innerHTML = html.trim();
+    var newBlock = tmp.firstElementChild;
+    var oldBlock = document.getElementById('user-block-' + userId);
+    if (oldBlock && newBlock) { oldBlock.replaceWith(newBlock); }
 }
 
 function deleteUser(userId, userName) {
@@ -133,8 +145,8 @@ function deleteUser(userId, userName) {
             return r.json();
         })
         .then(function() {
-            var row = document.getElementById('user-row-' + userId);
-            if (row) { row.remove(); }
+            var block = document.getElementById('user-block-' + userId);
+            if (block) { block.remove(); }
         })
         .catch(function(err) { alert(err.message); });
 }
