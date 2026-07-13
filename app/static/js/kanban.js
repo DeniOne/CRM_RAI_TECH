@@ -5,6 +5,14 @@ function initSortable() {
             group: 'kanban',
             animation: 150,
             ghostClass: 'opacity-50',
+            // Автоскролл горизонтального kanban-board при drag у правого/левого края.
+            // forceFallback обязателен: нативный HTML5-drag плохо автоскроллит
+            // горизонтальные контейнеры в большинстве браузеров.
+            forceFallback: true,
+            bubbleScroll: true,
+            scroll: true,
+            scrollSensitivity: 80,
+            scrollSpeed: 15,
             onEnd: function(evt) {
                 var leadId = evt.item.dataset.leadId;
                 var toStage = evt.to.dataset.stage;
