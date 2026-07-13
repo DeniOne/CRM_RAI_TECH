@@ -101,17 +101,6 @@
         }, 3000);
     }
     </script>
-    <script>
-    document.addEventListener('htmx:afterRequest', function(e) {
-        var form = e.detail.elt;
-        if (form && form.closest && form.closest('#drawer-content')) {
-            var path = form.getAttribute('hx-post') || '';
-            if (path.indexOf('/journal-entry') !== -1) {
-                showToast('Запись создана');
-            }
-        }
-    });
-    </script>
     <div id="drawer-overlay" class="fixed inset-0 bg-black/20 z-40 hidden" onclick="closeDrawer()"></div>
     <div id="drawer" class="fixed inset-y-0 right-0 w-96 bg-white border-l border-black/10 z-50 transform translate-x-full transition-transform duration-200 overflow-y-auto">
         <div id="drawer-content"></div>

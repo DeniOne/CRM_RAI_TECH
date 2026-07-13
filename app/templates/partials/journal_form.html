@@ -5,8 +5,7 @@
 <form hx-post="/leads/{{ lead_id }}/journal-entry"
       hx-target="#journal-wrapper"
       hx-swap="outerHTML"
-      hx-disabled-elt="find button[type=submit]"
-      hx-on::after-request="closeDrawer()">
+      hx-on::after-request="closeDrawer(); showToast('Запись создана')">
     <div class="space-y-5">
 
         {# ─── ДЕЙСТВИЕ (обязательно) ─── #}
