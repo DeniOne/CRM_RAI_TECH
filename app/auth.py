@@ -6,7 +6,6 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from fastapi import Request, Response, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.models import User, UserRole
@@ -85,7 +84,7 @@ async def get_current_user(request: Request, session: AsyncSession) -> User | No
     if not data:
         return None
     result = await session.execute(
-        select(User).options(selectinload(User.regions)).where(User.id == data["user_id"])
+        select(User).where(User.id == data["user_id"])
     )
     user = result.scalar_one_or_none()
     if user and user.is_active:

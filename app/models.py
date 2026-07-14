@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, date
 from typing import Optional, List
 
-from sqlalchemy import String, Text, Boolean, Float, Integer, ForeignKey, Table, Column, func, Enum as SAEnum
+from sqlalchemy import String, Text, Boolean, Float, Integer, ForeignKey, func, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -19,16 +19,6 @@ class InvitePurpose(str, enum.Enum):
     reset = "reset"
 
 
-# M2M менеджер ↔ регион. Один менеджер ведёт несколько регионов,
-# один регион может принадлежать нескольким менеджерам (территории пересекаются).
-# admin/supervisor не имеют записей здесь — у них нет «своих» регионов.
-user_regions = Table(
-    "user_regions", Base.metadata,
-    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    Column("region_id", ForeignKey("regions.id", ondelete="CASCADE"), primary_key=True),
-)
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -43,13 +33,6 @@ class User(Base):
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
-    # Регионы, закреплённые за менеджером. Пустой список → видит все регионы
-    # (безопасный дефолт: никто не теряет данные, пока админ не разметит).
-    regions: Mapped[List["Region"]] = relationship(
-        secondary=user_regions, lazy="selectin",
-        back_populates="managers", passive_deletes=True,
-    )
-
 
 class Region(Base):
     __tablename__ = "regions"
@@ -59,11 +42,6 @@ class Region(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     leads: Mapped[List["Lead"]] = relationship(back_populates="region")
-    # Менеджеры, закреплённые за регионом (обратная сторона M2M).
-    managers: Mapped[List["User"]] = relationship(
-        secondary=user_regions, lazy="selectin",
-        back_populates="regions", passive_deletes=True,
-    )
 
 
 class Lead(Base):

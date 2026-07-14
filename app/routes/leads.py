@@ -23,14 +23,28 @@ router = APIRouter()
 async def _regions_for_user(session: AsyncSession, user) -> list[Region]:
     """Регионы для дропдауна фильтра канбана и формы создания лида.
 
-    admin/supervisor — все регионы; manager — только назначенные ему.
-    Если у менеджера пустой список регионов — возвращает все (безопасный дефолт:
-    никто не теряет данные, пока админ не разметит).
+    Автоопределение: admin/supervisor видят все регионы; manager видит только
+    те регионы, в которых у него есть лиды (lead.region_id). Ручная разметка
+    не нужна — фильтр сам сужается до реальной работы менеджера.
+    Если у менеджера нет лидов с регионом — fallback на все (чтобы фильтр не
+    оказался пустым).
     """
-    if user.role.value in ("admin", "supervisor") or not user.regions:
+    if user.role.value in ("admin", "supervisor"):
         result = await session.execute(select(Region).order_by(Region.name))
         return result.scalars().all()
-    return sorted(user.regions, key=lambda r: r.name)
+    # manager: регионы, где есть хотя бы один его лид
+    result = await session.execute(
+        select(Region)
+        .join(Lead, Lead.region_id == Region.id)
+        .where(Lead.assigned_manager_id == user.id)
+        .order_by(Region.name)
+    )
+    regions = result.scalars().unique().all()
+    # fallback: нет лидов с регионом → показать все (не оставлять пустой фильтр)
+    if not regions:
+        all_result = await session.execute(select(Region).order_by(Region.name))
+        return all_result.scalars().all()
+    return regions
 
 
 @router.get("/kanban", response_class=HTMLResponse)
@@ -65,11 +79,9 @@ async def kanban(
     filters = [base_filter]
     if region:
         filters.append(Lead.region_id == region)
-    elif user.role.value == "manager" and user.regions:
-        # Менеджер с непустым набором регионов и без явного выбора региона в
-        # фильтре → показываем лиды только из закреплённых регионов. Иначе
-        # дропдаун scoped, а доска показала бы все лиды менеджера — рассинхрон.
-        filters.append(Lead.region_id.in_([r.id for r in user.regions]))
+    # С автоопределением регионов доска менеджера не требует доп. фильтра:
+    # base_filter уже отсекает чужие лиды, а все свои лиды и так лежат в его
+    # регионах (по определению автоопределения).
     if level:
         filters.append(Lead.level == level)
     if priority:
@@ -92,8 +104,9 @@ async def kanban(
             leads_by_stage[lead.stage].append(lead)
 
     regions = await _regions_for_user(session, user)
-    # Флаг: список регионов сужен до назначенных менеджеру (для метки фильтра).
-    regions_scoped = user.role.value == "manager" and bool(user.regions)
+    # Флаг: фильтр регионов сужен до тех, где у менеджера есть лиды (для метки
+    # «Все мои регионы» вместо «Все регионы»). admin/supervisor никогда не scoped.
+    regions_scoped = user.role.value == "manager" and len(regions) > 0
 
     users_result = await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))
     users = users_result.scalars().all()
@@ -202,12 +215,6 @@ async def lead_create(
     if region_id:
         result = await session.execute(select(Region).where(Region.id == region_id))
         region = result.scalar_one_or_none()
-        # Серверная гарантия: менеджер с непустым набором регионов не может
-        # создать лида в чужом регионе (дропдаун формы scoped, но защита от
-        # подделки запроса). admin/supervisor и менеджер без набора — свободны.
-        if (region and user.role.value == "manager" and user.regions
-                and region.id not in {r.id for r in user.regions}):
-            raise HTTPException(status_code=403, detail="Регион не назначен вам")
     elif new_region.strip():
         region = await _get_or_create_region(session, new_region.strip())
 
