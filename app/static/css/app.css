@@ -171,5 +171,35 @@ a.ticker-item:hover {
     transform: translateY(-1px);
 }
 
+/* ─── Flatpickr: футер с кнопками «Удалить» / «Сегодня» / «Установить» ─── */
+.flatpickr-calendar .fp-footer {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid #eee;
+    justify-content: space-between;
+}
+.flatpickr-calendar .fp-footer .fp-btn {
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: #f1f5f9;
+    color: #0f172a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.flatpickr-calendar .fp-footer .fp-btn:hover { background: #e2e8f0; }
+.flatpickr-calendar .fp-footer .fp-clear { background: #fef2f2; color: #b91c1c; }
+.flatpickr-calendar .fp-footer .fp-clear:hover { background: #fee2e2; }
+.flatpickr-calendar .fp-footer .fp-today { background: #030213; color: #fff; }
+.flatpickr-calendar .fp-footer .fp-today:hover { background: #1e1b4b; }
+.flatpickr-calendar .fp-footer .fp-apply { background: #ecfdf5; color: #047857; }
+.flatpickr-calendar .fp-footer .fp-apply:hover { background: #d1fae5; }
+/* visible-инпут (altInput) — наследует стили Tailwind-классов оригинального инпута */
+.flatpickr-input[disabled] { background: #fff; color: #030213; opacity: 1; }
+
 # Auto-update test Sat Jul 11 12:34:57 RTZ 2026
 /* webhook test Sat Jul 11 12:43:39 RTZ 2026 */

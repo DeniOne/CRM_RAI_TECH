@@ -1,0 +1,40 @@
+{# Форма редактирования задачи (в drawer).
+   Переменные: task, current_user.
+   hx-target="#task-{{id}}" → обновит карточку в ленте журнала;
+   hx-on::after-request → закрывает drawer после успешного сохранения. #}
+<form hx-put="/api/tasks/{{ task.id }}"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful){ closeDrawer(); showToast('Задача обновлена'); }">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">Название <span class="text-red-500">*</span></label>
+            <input type="text" name="title" value="{{ task.title }}" required
+                   class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Описание</label>
+            <textarea name="description" rows="3" placeholder="Детали задачи..."
+                      class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ task.description or '' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs text-muted mb-1">Срок</label>
+                <input type="datetime-local" name="due_date"
+                       value="{{ task.due_date.strftime('%Y-%m-%dT%H:%M') if task.due_date else '' }}"
+                       class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Приоритет</label>
+                <select name="priority" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                    <option value="1" {% if task.priority == 1 %}selected{% endif %}>Высокий</option>
+                    <option value="2" {% if task.priority == 2 %}selected{% endif %}>Средний</option>
+                    <option value="3" {% if task.priority == 3 %}selected{% endif %}>Низкий</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" id="task-edit-submit"
+                class="w-full bg-ink text-white px-4 py-2 rounded-lg text-sm hover:bg-ink/90">
+            Сохранить
+        </button>
+    </div>
+</form>

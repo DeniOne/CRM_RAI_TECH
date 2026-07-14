@@ -49,6 +49,7 @@ async def update_task_status(
     request: Request,
     task_id: int,
     status: str = Form(...),
+    source: str = Form("tasks"),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -77,9 +78,94 @@ async def update_task_status(
         task.due_date and task.due_date < now and task.status in ("pending", "in_progress")
     )
 
+    # source=journal → журнальная карточка (task_card.html),
+    # иначе — строка страницы /tasks (task_row.html).
+    partial = "partials/task_card.html" if source == "journal" else "partials/task_row.html"
     return templates.TemplateResponse(
         request=request,
-        name="partials/task_row.html",
+        name=partial,
+        context={"current_user": user, "task": task},
+    )
+
+
+@router.get("/api/tasks/{task_id}/edit", response_class=HTMLResponse)
+async def task_edit_form(
+    request: Request,
+    task_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Форма редактирования задачи (открывается в drawer).
+
+    Доступ: admin/supervisor — любые задачи; manager — только свои
+    (assigned_to == user.id).
+    """
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404)
+
+    if user.role.value == "manager" and task.assigned_to != user.id:
+        raise HTTPException(status_code=403, detail="Можно редактировать только свои задачи")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/task_edit_form.html",
+        context={"current_user": user, "task": task},
+    )
+
+
+@router.put("/api/tasks/{task_id}", response_class=HTMLResponse)
+async def update_task(
+    request: Request,
+    task_id: int,
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+    priority: int = Form(2),
+    session: AsyncSession = Depends(get_session),
+):
+    """Обновление задачи. Возвращает обновлённую журнальную карточку (task_card.html).
+
+    Доступ: admin/supervisor — любые; manager — только свои. Поля: title,
+    description, due_date (datetime-local), priority (1/2/3). Статус тут не
+    меняется — у него отдельный эндпоинт (update_task_status).
+    """
+    from app.main import templates
+    user = await get_current_user(request, session)
+
+    result = await session.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404)
+
+    if user.role.value == "manager" and task.assigned_to != user.id:
+        raise HTTPException(status_code=403, detail="Можно редактировать только свои задачи")
+
+    clean_title = title.strip()
+    if not clean_title:
+        raise HTTPException(status_code=422, detail="Название обязательно")
+    if priority not in (1, 2, 3):
+        priority = 2
+
+    due_dt = None
+    if due_date:
+        try:
+            due_dt = datetime.strptime(due_date, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            pass  # некорректная дата — оставляем без срока
+
+    task.title = clean_title
+    task.description = description.strip() or None
+    task.due_date = due_dt
+    task.priority = priority
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/task_card.html",
         context={"current_user": user, "task": task},
     )
 
