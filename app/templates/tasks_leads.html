@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — CRM RAI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-medium mb-4 text-ink">{{ page_title }}</h1>
+
+<div class="space-y-4">
+    {% for lead in leads %}
+    <div class="bg-white border border-black/10 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+            <a href="/leads/{{ lead.id }}" class="text-base font-medium text-ink hover:underline">{{ lead.name }}</a>
+            <div class="flex items-center gap-2">
+                {% if lead.assigned_manager %}<span class="text-xs text-muted">{{ lead.assigned_manager.full_name }}</span>{% endif %}
+                <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-muted">{{ stage_labels.get(lead.stage, lead.stage) }}</span>
+            </div>
+        </div>
+        {% if filter != 'no_tasks' %}
+        <div class="space-y-1">
+            {% for task in lead._tasks %}
+            {% include "partials/task_row.html" %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-12 text-center">
+        <svg class="w-12 h-12 text-muted/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        <div class="text-sm text-muted mb-3">Ничего не найдено</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

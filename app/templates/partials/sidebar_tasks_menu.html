@@ -1,0 +1,25 @@
+{# Рендерится в #sidebar-tasks-counts. counts = {total, today, overdue, leads_without_tasks} #}
+<a href="/tasks/leads?filter=total"
+   data-filter="total"
+   class="sidebar-subitem flex items-center justify-between pl-6 pr-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-100">
+    <span>Всего задач</span>
+    <span class="bg-slate-100 text-muted rounded-full text-xs px-2 py-0.5">{{ counts.total }}</span>
+</a>
+<a href="/tasks/leads?filter=today"
+   data-filter="today"
+   class="sidebar-subitem flex items-center justify-between pl-6 pr-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-100">
+    <span>Сегодня</span>
+    <span class="bg-slate-100 text-muted rounded-full text-xs px-2 py-0.5">{{ counts.today }}</span>
+</a>
+<a href="/tasks/leads?filter=overdue"
+   data-filter="overdue"
+   class="sidebar-subitem flex items-center justify-between pl-6 pr-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-100">
+    <span>Просроченные</span>
+    <span class="bg-slate-100 text-muted rounded-full text-xs px-2 py-0.5">{{ counts.overdue }}</span>
+</a>
+<a href="/tasks/leads?filter=no_tasks"
+   data-filter="no_tasks"
+   class="sidebar-subitem flex items-center justify-between pl-6 pr-3 py-1.5 rounded-lg text-sm text-ink hover:bg-slate-100">
+    <span>Лиды без задач</span>
+    <span class="bg-slate-100 text-muted rounded-full text-xs px-2 py-0.5">{{ counts.leads_without_tasks }}</span>
+</a>

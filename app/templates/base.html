@@ -48,7 +48,19 @@
                 </a>
                 <div class="pt-3 pb-1 px-3 text-xs font-medium text-muted uppercase tracking-wide">Работа</div>
                 <a href="/kanban" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Канбан</a>
-                <a href="/tasks" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Задачи</a>
+                <div class="sidebar-group" id="tasks-sidebar-group">
+                    <button type="button"
+                            onclick="toggleSidebarSection('tasks-sidebar-group')"
+                            class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-ink hover:bg-slate-100">
+                        <span>Задачи</span>
+                        <svg class="sidebar-chevron w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="sidebar-children space-y-0.5 mt-0.5" id="sidebar-tasks-counts">
+                        <div class="pl-6 pr-3 py-1.5 text-sm text-muted">…</div>
+                    </div>
+                </div>
                 <a href="/deals" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Сделки</a>
                 <a href="/library" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Библиотека</a>
                 {% if current_user.role.value == 'admin' %}
@@ -108,6 +120,7 @@
     </div>
     <script src="/static/js/drawer.js"></script>
     <script src="/static/js/ticker.js"></script>
+    <script src="/static/js/sidebar_tasks.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4/dist/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4/dist/l10n/ru.js"></script>
     <script src="/static/js/datepicker.js"></script>
