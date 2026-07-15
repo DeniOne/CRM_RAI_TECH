@@ -21,6 +21,8 @@ async def tasks_page(
 ):
     from app.main import templates
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
 
     filters = [Task.assigned_to == user.id]
     if status != "all":
@@ -54,6 +56,8 @@ async def update_task_status(
 ):
     from app.main import templates
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
 
     result = await session.execute(
         select(Task).where(Task.id == task_id).options(selectinload(Task.lead))
@@ -101,6 +105,8 @@ async def task_edit_form(
     """
     from app.main import templates
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
 
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
@@ -135,6 +141,8 @@ async def update_task(
     """
     from app.main import templates
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
 
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
@@ -177,6 +185,8 @@ async def delete_task(
     session: AsyncSession = Depends(get_session),
 ):
     user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
 
     if user.role.value == "manager":
         raise HTTPException(status_code=403, detail="Менеджер не может удалять задачи")
