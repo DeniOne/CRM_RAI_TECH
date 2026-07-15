@@ -1,5 +1,4 @@
 from datetime import datetime, date, timedelta
-import asyncio
 from io import BytesIO
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
@@ -785,7 +784,6 @@ async def add_journal_entry(
     task_title: str = Form(""),
     task_due_date: str = Form(""),
     task_priority: int = Form(2),
-    notify_hermes: bool = Form(False),
     session: AsyncSession = Depends(get_session),
 ):
     """Единая форма Журнала: создаёт действие + опционально задачу.
@@ -793,7 +791,6 @@ async def add_journal_entry(
     Действие (ContactLog) обязательно. result — основной текст действия.
     Если заполнен task_title — создаётся Task и привязывается к ContactLog.task_id.
     """
-    from app.services.hermes_service import send_to_hermes
     user = await get_current_user(request, session)
     if not user:
         raise HTTPException(status_code=401)
@@ -873,33 +870,6 @@ async def add_journal_entry(
     )
     session.add(log)
     await session.commit()
-
-    # Уведомление Hermes о новой задаче — в фоне, не блокирует ответ формы.
-    # send_to_hermes не использует session (только httpx), данные захвачены в
-    # замыкании. До фикса это был await — форма ждала LLM-инференс 10-40 сек.
-    if new_task and notify_hermes:
-        hermes_msg = f"Создана задача: {new_task.title}"
-        if new_task.due_date:
-            hermes_msg += f" (срок: {new_task.due_date.strftime('%d.%m.%Y %H:%M')})"
-        hermes_msg += f" для лида {lead.name}"
-        _hermes_user_id = user.id
-        _hermes_user_name = user.full_name
-        _hermes_role = user.role.value
-        _hermes_lead_id = lead_id
-
-        async def _notify_hermes_bg():
-            try:
-                await send_to_hermes(
-                    message=f"Напомни мне: {hermes_msg}",
-                    user_id=_hermes_user_id,
-                    user_name=_hermes_user_name,
-                    role=_hermes_role,
-                    context_lead_id=_hermes_lead_id,
-                )
-            except Exception:
-                pass  # Hermes недоступен — не блокируем запись в Журнал
-
-        asyncio.create_task(_notify_hermes_bg())
 
     return await _render_journal(request, session, lead_id, user)
 
@@ -1017,11 +987,9 @@ async def create_task(
     description: str = Form(""),
     due_date: str = Form(""),
     priority: int = Form(2),
-    notify_hermes: bool = Form(False),
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
-    from app.services.hermes_service import send_to_hermes
     user = await get_current_user(request, session)
 
     lead_result = await session.execute(select(Lead).where(Lead.id == lead_id))
@@ -1048,20 +1016,6 @@ async def create_task(
     )
     session.add(task)
     await session.commit()
-
-    # Уведомить Hermes о новой задаче
-    if notify_hermes:
-        hermes_msg = f"Создана задача: {title}"
-        if due_dt:
-            hermes_msg += f" (срок: {due_dt.strftime('%d.%m.%Y %H:%M')})"
-        hermes_msg += f" для лида {lead.name}"
-        await send_to_hermes(
-            message=f"Напомни мне: {hermes_msg}",
-            user_id=user.id,
-            user_name=user.full_name,
-            role=user.role.value,
-            context_lead_id=lead_id,
-        )
 
     # Рассчитать is_overdue для новой задачи
     now = datetime.now()
