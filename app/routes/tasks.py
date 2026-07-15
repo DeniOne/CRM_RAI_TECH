@@ -19,10 +19,16 @@ router = APIRouter()
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
-def _user_scope_filters(user):
-    """Возвращает пару (task_filter, lead_filter) по роли."""
+def _user_scope_filters(user, manager_id=None):
+    """Возвращает пару (task_filter, lead_filter) по роли.
+
+    manager_id (только для admin/supervisor) сужает выборку до конкретного
+    менеджера. Для manager всегда свои данные, параметр игнорируется.
+    """
     if user.role.value == "manager":
         return (Task.assigned_to == user.id, Lead.assigned_manager_id == user.id)
+    if manager_id:
+        return (Task.assigned_to == manager_id, Lead.assigned_manager_id == manager_id)
     return (True, True)
 
 
@@ -69,9 +75,12 @@ async def _task_counts(session, user):
     }
 
 
-async def _query_leads_with_tasks(session, user, filter):
-    """Лиды с задачами, отфильтрованными по filter."""
-    _, lead_filter = _user_scope_filters(user)
+async def _query_leads_with_tasks(session, user, filter, manager_id=None):
+    """Лиды с задачами, отфильтрованными по filter.
+
+    manager_id (для admin/supervisor) сужает до задач конкретного менеджера.
+    """
+    task_filter, lead_filter = _user_scope_filters(user, manager_id)
     day_start, day_end = user_day_bounds(user)
 
     if filter == "no_tasks":
@@ -94,15 +103,13 @@ async def _query_leads_with_tasks(session, user, filter):
     elif filter == "overdue":
         task_base = task_base & Task.due_date.is_not(None) & (Task.due_date < day_start)
 
-    # Задачи с eager-load лидов
+    # Задачи с eager-load лидов + скоуп по роли/выбранному менеджеру
     tasks_q = (
         select(Task)
-        .where(task_base, Task.lead_id.is_not(None))
+        .where(task_base, task_filter, Task.lead_id.is_not(None))
         .options(selectinload(Task.lead).selectinload(Lead.assigned_manager))
         .order_by(Task.due_date.is_(None), Task.due_date)
     )
-    if user.role.value == "manager":
-        tasks_q = tasks_q.where(Task.assigned_to == user.id)
 
     result = await session.execute(tasks_q)
     tasks = result.scalars().all()
@@ -334,6 +341,7 @@ async def sidebar_counts(
 async def tasks_leads_page(
     request: Request,
     filter: str = "total",
+    manager_id: int | None = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -345,7 +353,11 @@ async def tasks_leads_page(
     if not user:
         raise HTTPException(status_code=401)
 
-    leads = await _query_leads_with_tasks(session, user, filter)
+    # Менеджер всегда видит только свои задачи — игнорируем переданный manager_id
+    if user.role.value == "manager":
+        manager_id = None
+
+    leads = await _query_leads_with_tasks(session, user, filter, manager_id)
 
     titles = {
         "total": "Все задачи",
@@ -354,14 +366,34 @@ async def tasks_leads_page(
         "no_tasks": "Лиды без задач",
     }
 
+    # Список менеджеров для селекта (только admin/supervisor)
+    users = []
+    if user.role.value in ("supervisor", "admin"):
+        users_result = await session.execute(
+            select(User).where(User.is_active == True).order_by(User.full_name)
+        )
+        users = users_result.scalars().all()
+
+    context = {
+        "current_user": user,
+        "leads": leads,
+        "filter": filter,
+        "page_title": titles[filter],
+        "stage_labels": STAGE_LABELS,
+        "manager_id": manager_id,
+        "users": users,
+    }
+
+    # HTMX-запрос (смена фильтра) — возвращаем только список
+    if request.headers.get("hx-request"):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/tasks_leads_list.html",
+            context=context,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="tasks_leads.html",
-        context={
-            "current_user": user,
-            "leads": leads,
-            "filter": filter,
-            "page_title": titles[filter],
-            "stage_labels": STAGE_LABELS,
-        },
+        context=context,
     )

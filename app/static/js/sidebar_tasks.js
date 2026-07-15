@@ -49,13 +49,22 @@
             .catch(function () { box.dataset.loaded = "error"; /* тихо, как тикер */ });
     }
 
-    /* ---- Подсветка активного подменю по ?filter= в URL ---- */
+    /* ---- Подсветка активного подменю по ?filter= в URL ----
+     * Заодно сохраняем выбранный менеджер (?manager_id=) в ссылках подменю,
+     * чтобы при переходе между «Сегодня / Просроченные / ...» фильтр не сбрасывался. */
     function highlightActive() {
         var params = new URLSearchParams(window.location.search);
         var filter = params.get("filter");
-        if (!filter) return;
-        var item = document.querySelector('.sidebar-subitem[data-filter="' + filter + '"]');
-        if (item) item.classList.add("bg-slate-100", "font-medium");
+        if (filter) {
+            var item = document.querySelector('.sidebar-subitem[data-filter="' + filter + '"]');
+            if (item) item.classList.add("bg-slate-100", "font-medium");
+        }
+        var managerId = params.get("manager_id");
+        if (managerId) {
+            document.querySelectorAll(".sidebar-subitem").forEach(function (a) {
+                a.href = a.href + "&manager_id=" + managerId;
+            });
+        }
     }
 
     document.addEventListener("DOMContentLoaded", function () {
