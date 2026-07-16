@@ -3,7 +3,7 @@ from io import BytesIO
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -46,6 +46,25 @@ async def _regions_for_user(session: AsyncSession, user) -> list[Region]:
     return regions
 
 
+def build_kanban_query(region, level, priority, manager, assigned_manager, q=None) -> str:
+    """Готовит query-строку фильтров канбана для ссылок (вида '?region=3&level=A'
+    или '', если фильтров нет). Единое место построения."""
+    params = []
+    if region:
+        params.append(f"region={region}")
+    if level:
+        params.append(f"level={level}")
+    if priority:
+        params.append(f"priority={priority}")
+    if manager:
+        params.append(f"manager={manager}")
+    if assigned_manager:
+        params.append(f"assigned_manager={assigned_manager}")
+    if q:
+        params.append(f"q={q}")
+    return ("?" + "&".join(params)) if params else ""
+
+
 @router.get("/kanban", response_class=HTMLResponse)
 async def kanban(
     request: Request,
@@ -54,6 +73,7 @@ async def kanban(
     level: str = None,
     priority: str = None,
     assigned_manager: str = None,
+    q: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -66,9 +86,12 @@ async def kanban(
     priority = int(priority) if priority and priority.isdigit() else None
     # level: однобуквенный A/B/C или пусто
     level = level.strip() if level else None
+    q = (q or "").strip() or None
 
     if manager is None:
         manager = "my" if user.role.value == "manager" else "all"
+
+    kanban_query = build_kanban_query(region, level, priority, manager, assigned_manager, q)
 
     if manager == "my" and user.role.value == "manager":
         base_filter = Lead.assigned_manager_id == user.id
@@ -91,6 +114,17 @@ async def kanban(
             filters.append(Lead.assigned_manager_id.is_(None))
         elif assigned_manager.isdigit():
             filters.append(Lead.assigned_manager_id == int(assigned_manager))
+
+    if q:
+        filters.append(
+            or_(
+                Lead.name.ilike(f"%{q}%"),
+                Lead.inn.ilike(f"%{q}%"),
+                Lead.head_name.ilike(f"%{q}%"),
+                Lead.site.ilike(f"%{q}%"),
+                Lead.settlement.ilike(f"%{q}%"),
+            )
+        )
 
     result = await session.execute(
         select(Lead).where(*filters).options(selectinload(Lead.region), selectinload(Lead.assigned_manager)).order_by(Lead.name)
@@ -125,7 +159,7 @@ async def kanban(
         return templates.TemplateResponse(
             request=request,
             name="partials/kanban_board.html",
-            context={"stages": stages_data},
+            context={"stages": stages_data, "kanban_query": kanban_query},
         )
 
     return templates.TemplateResponse(
@@ -142,6 +176,8 @@ async def kanban(
             "priority": priority,
             "region_id": region,
             "assigned_manager_id": assigned_manager,
+            "q": q,
+            "kanban_query": kanban_query,
         },
     )
 
@@ -288,9 +324,24 @@ async def lead_import(
 
 
 @router.get("/leads/{lead_id}", response_class=HTMLResponse)
-async def lead_card(request: Request, lead_id: int, session: AsyncSession = Depends(get_session)):
+async def lead_card(
+    request: Request,
+    lead_id: int,
+    region: str = None,
+    level: str = None,
+    priority: str = None,
+    manager: str = None,
+    assigned_manager: str = None,
+    q: str = None,
+    session: AsyncSession = Depends(get_session),
+):
     from app.main import templates
     user = await get_current_user(request, session)
+
+    region_n = int(region) if region and str(region).isdigit() else None
+    priority_n = int(priority) if priority and str(priority).isdigit() else None
+    level_n = level.strip() if level else None
+    kanban_query = build_kanban_query(region_n, level_n, priority_n, manager, assigned_manager, q)
 
     result = await session.execute(
         select(Lead).where(Lead.id == lead_id).options(
@@ -323,6 +374,7 @@ async def lead_card(request: Request, lead_id: int, session: AsyncSession = Depe
             "stage_label": STAGE_LABELS.get(lead.stage, lead.stage),
             "users": users,
             "entries": entries,
+            "kanban_query": kanban_query,
         },
     )
 

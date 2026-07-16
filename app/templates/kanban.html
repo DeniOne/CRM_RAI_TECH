@@ -24,8 +24,13 @@
 </div>
 
 <form id="kanban-filters" class="flex gap-3 mb-4 flex-wrap"
-      hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML" hx-trigger="change"
-      hx-include="this">
+      hx-get="/kanban" hx-target="#kanban-board" hx-swap="innerHTML"
+      hx-trigger="change, keyup changed delay:400ms from:find input[name='q']"
+      hx-include="this" hx-push-url="true">
+    <input type="search" name="q" value="{{ q or '' }}"
+           placeholder="Поиск: название, ИНН, руководитель, сайт, город"
+           autocomplete="off"
+           class="border border-black/10 rounded-md px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
     <select name="region"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">{% if regions_scoped %}Все мои регионы{% else %}Все регионы{% endif %}</option>

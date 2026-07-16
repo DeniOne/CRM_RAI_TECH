@@ -8,7 +8,7 @@
         {% for lead in stage.leads %}
         <div class="kanban-card bg-white border border-black/10 rounded-2xl p-3 cursor-move hover:border-black/20 transition-colors"
              data-lead-id="{{ lead.id }}" data-stage="{{ lead.stage }}">
-            <a href="/leads/{{ lead.id }}" class="font-medium text-sm text-blue-500 hover:underline block truncate">{{ lead.name }}</a>
+            <a href="/leads/{{ lead.id }}{{ kanban_query }}" class="font-medium text-sm text-blue-500 hover:underline block truncate">{{ lead.name }}</a>
             <div class="flex gap-2 mt-1 text-xs text-muted">
                 {% if lead.level %}<span class="bg-{{ 'emerald' if lead.level == 'A' else ('amber' if lead.level == 'B' else 'slate') }}-100 text-{{ 'emerald' if lead.level == 'A' else ('amber' if lead.level == 'B' else 'muted') }}-600 px-1.5 rounded-lg">{{ lead.level }}</span>{% endif %}
                 {% if lead.priority %}<span>П{{ lead.priority }}</span>{% endif %}
