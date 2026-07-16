@@ -17,6 +17,9 @@ storage/*.db-shm
 storage/*.db-wal
 storage/*.db.local-backup-*
 storage/*.db.prod-fresh
+storage/*.db.before-migrate-*
+storage/*.db.fresh-from-prod
+storage/*.db.local-before-refresh-*
 storage/library/
 storage/documents/
 
