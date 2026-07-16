@@ -34,7 +34,7 @@ async def get_funnel_totals(session: AsyncSession) -> dict:
     for code in STAGES:
         count = stage_counts.get(code, 0)
         conversion = None
-        if prev_count is not None and prev_count > 0 and code != "lost":
+        if prev_count is not None and prev_count > 0 and code not in ("lost", "postponed"):
             conversion = round(count / prev_count * 100, 1)
         stages.append({
             "code": code,
@@ -42,7 +42,7 @@ async def get_funnel_totals(session: AsyncSession) -> dict:
             "count": count,
             "conversion_pct": conversion,
         })
-        if code != "lost":
+        if code not in ("lost", "postponed"):
             prev_count = count
 
     total = sum(stage_counts.values())

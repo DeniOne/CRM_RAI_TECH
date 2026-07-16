@@ -6,23 +6,25 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Lead, StageHistory, Contact
 
-STAGES = ["0", "1", "2", "3", "4", "5", "6", "7", "lost"]
+STAGES = ["0", "1", "2", "3", "4", "5", "6", "7", "postponed", "lost"]
 
 STAGE_LABELS = {
-    "0": "Сырые лиды",
+    "0": "Серые лиды",
     "1": "В работе",
     "2": "Квалифицирован",
     "3": "КП отправлено",
     "4": "Переговоры",
-    "5": "Договор",
-    "6": "Счёт выставлен",
-    "7": "Оплачено",
+    "5": "Договор + Счёт",
+    "6": "Оплачено",
+    "7": "Доставлено",
+    "postponed": "Отложенный спрос",
     "lost": "Потерян",
 }
 
 STAGE_COLORS = {
     "0": "gray", "1": "blue", "2": "indigo", "3": "purple",
-    "4": "orange", "5": "yellow", "6": "cyan", "7": "green",
+    "4": "orange", "5": "yellow", "6": "green", "7": "teal",
+    "postponed": "amber",
     "lost": "red",
 }
 
@@ -31,7 +33,7 @@ def validate_transition(lead: Lead, from_stage: str, to_stage: str) -> tuple[boo
     if from_stage == to_stage:
         return True, []
 
-    if to_stage == "lost":
+    if to_stage in ("lost", "postponed"):
         return True, []
 
     if from_stage == "0" and to_stage == "1":

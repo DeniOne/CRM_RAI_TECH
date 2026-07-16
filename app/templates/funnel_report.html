@@ -12,14 +12,15 @@
         <thead class="text-muted border-b border-black/10">
             <tr>
                 <th class="text-left px-4 py-2 font-medium">Регион</th>
-                <th class="text-right px-4 py-2 font-medium">Сырые</th>
+                <th class="text-right px-4 py-2 font-medium">Серые</th>
                 <th class="text-right px-4 py-2 font-medium">В работе</th>
                 <th class="text-right px-4 py-2 font-medium">Квалиф.</th>
                 <th class="text-right px-4 py-2 font-medium">КП</th>
                 <th class="text-right px-4 py-2 font-medium">Перег.</th>
-                <th class="text-right px-4 py-2 font-medium">Договор</th>
-                <th class="text-right px-4 py-2 font-medium">Счёт</th>
+                <th class="text-right px-4 py-2 font-medium">Договор+Счёт</th>
                 <th class="text-right px-4 py-2 font-medium">Оплата</th>
+                <th class="text-right px-4 py-2 font-medium">Доставка</th>
+                <th class="text-right px-4 py-2 font-medium">Отлож.</th>
                 <th class="text-right px-4 py-2 font-medium">Потерян</th>
                 <th class="text-right px-4 py-2 font-medium">Всего</th>
             </tr>
@@ -36,6 +37,7 @@
                 <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_5', 0) }}</td>
                 <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_6', 0) }}</td>
                 <td class="text-right px-4 py-2 text-ink">{{ r.get('stage_7', 0) }}</td>
+                <td class="text-right px-4 py-2 text-amber-600">{{ r.get('stage_postponed', 0) }}</td>
                 <td class="text-right px-4 py-2 text-red-600">{{ r.get('stage_lost', 0) }}</td>
                 <td class="text-right px-4 py-2 font-medium text-ink">{{ r.total }}</td>
             </tr>
