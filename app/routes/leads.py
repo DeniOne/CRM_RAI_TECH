@@ -1,15 +1,17 @@
+import shutil
 from datetime import datetime, date, timedelta
 from io import BytesIO
+from pathlib import Path
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse
-from sqlalchemy import select, or_
+from fastapi.responses import HTMLResponse, JSONResponse
+from sqlalchemy import select, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_session
-from app.models import Lead, Contact, ContactLog, Comment, Task, User, Region
+from app.models import Lead, Contact, ContactLog, Comment, Task, User, Region, StageHistory, AgentMessage
 from app.services.funnel_service import (
     STAGES, STAGE_LABELS, STAGE_COLORS, change_stage, validate_transition
 )
@@ -963,6 +965,47 @@ async def assign_manager(
         name="partials/lead_info_form.html",
         context={"current_user": user, "lead": lead, "users": users},
     )
+
+
+@router.delete("/leads/{lead_id}")
+async def delete_lead(
+    request: Request,
+    lead_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    if user.role.value not in ("admin", "supervisor"):
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    result = await session.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+
+    try:
+        await session.execute(
+            delete(StageHistory).where(StageHistory.lead_id == lead_id)
+        )
+        await session.execute(
+            delete(AgentMessage).where(AgentMessage.context_lead_id == lead_id)
+        )
+
+        docs_dir = Path("storage/documents") / str(lead_id)
+        if docs_dir.exists():
+            shutil.rmtree(docs_dir, ignore_errors=True)
+
+        await session.delete(lead)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "detail": "Ошибка удаления лида"},
+        )
+
+    return JSONResponse(status_code=200, content={"ok": True})
 
 
 @router.get("/leads/{lead_id}/contacts/form", response_class=HTMLResponse)
