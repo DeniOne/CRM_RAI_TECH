@@ -3,8 +3,7 @@
 {% block content %}
 <h1 class="text-2xl font-medium mb-4 text-ink">{{ page_title }}</h1>
 
-{# Фильтр по стадии воронки — ВИДЕН ВСЕМ ролям #}
-<form class="flex gap-3 mb-4 flex-wrap"
+<form class="flex gap-3 mb-4 flex-wrap items-center"
       hx-get="/tasks/leads" hx-target="#tasks-leads-list" hx-swap="outerHTML" hx-trigger="change"
       hx-include="this">
     <input type="hidden" name="filter" value="{{ filter }}">
@@ -17,14 +16,7 @@
         {% endif %}
         {% endfor %}
     </select>
-</form>
-
-{# Фильтр по менеджеру — только supervisor/admin #}
-{% if current_user.role.value in ('supervisor', 'admin') %}
-<form class="flex gap-3 mb-4 flex-wrap"
-      hx-get="/tasks/leads" hx-target="#tasks-leads-list" hx-swap="outerHTML" hx-trigger="change"
-      hx-include="this">
-    <input type="hidden" name="filter" value="{{ filter }}">
+    {% if current_user.role.value in ('supervisor', 'admin') %}
     <select name="manager_id"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
         <option value="">Все менеджеры</option>
@@ -32,8 +24,8 @@
         <option value="{{ u.id }}" {% if manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
         {% endfor %}
     </select>
+    {% endif %}
 </form>
-{% endif %}
 
 {% include "partials/tasks_leads_list.html" %}
 {% endblock %}
