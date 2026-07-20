@@ -3,16 +3,18 @@
 {% block content %}
 <h1 class="text-2xl font-medium mb-4 text-ink">{{ page_title }}</h1>
 
-{# Фильтр по приоритету — ВИДЕН ВСЕМ ролям (как в kanban.html:48-54) #}
+{# Фильтр по стадии воронки — ВИДЕН ВСЕМ ролям #}
 <form class="flex gap-3 mb-4 flex-wrap"
       hx-get="/tasks/leads" hx-target="#tasks-leads-list" hx-swap="outerHTML" hx-trigger="change"
       hx-include="this">
     <input type="hidden" name="filter" value="{{ filter }}">
-    <select name="priority"
+    <select name="stage"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
-        <option value="">Все приоритеты</option>
-        {% for p in [1, 2, 3] %}
-        <option value="{{ p }}" {% if priority == p %}selected{% endif %}>{{ p }}</option>
+        <option value="">Все стадии</option>
+        {% for key, label in stage_labels.items() %}
+        {% if key != 'lost' %}
+        <option value="{{ key }}" {% if stage == key %}selected{% endif %}>{{ label }}</option>
+        {% endif %}
         {% endfor %}
     </select>
 </form>

@@ -75,11 +75,11 @@ async def _task_counts(session, user):
     }
 
 
-async def _query_leads_with_tasks(session, user, filter, manager_id=None, priority=None):
+async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=None):
     """Лиды с задачами, отфильтрованными по filter.
 
     manager_id (для admin/supervisor) сужает до задач конкретного менеджера.
-    priority — фильтр по приоритету (1/2/3), применяется только в no_tasks.
+    stage — фильтр по стадии воронки, применяется только в no_tasks.
     """
     task_filter, lead_filter = _user_scope_filters(user, manager_id)
     day_start, day_end = user_day_bounds(user)
@@ -87,8 +87,8 @@ async def _query_leads_with_tasks(session, user, filter, manager_id=None, priori
     if filter == "no_tasks":
         has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id))
         conds = [lead_filter, Lead.stage != "lost", ~has_tasks]
-        if priority:
-            conds.append(Lead.priority == priority)
+        if stage:
+            conds.append(Lead.stage == stage)
         result = await session.execute(
             select(Lead)
             .where(*conds)
@@ -346,7 +346,7 @@ async def tasks_leads_page(
     request: Request,
     filter: str = "total",
     manager_id: int | None = None,
-    priority: str = None,
+    stage: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -362,10 +362,7 @@ async def tasks_leads_page(
     if user.role.value == "manager":
         manager_id = None
 
-    # Нормализация priority (как в kanban — leads.py:86)
-    priority = int(priority) if priority and priority.isdigit() else None
-
-    leads = await _query_leads_with_tasks(session, user, filter, manager_id, priority)
+    leads = await _query_leads_with_tasks(session, user, filter, manager_id, stage)
 
     titles = {
         "total": "Все задачи",
@@ -389,7 +386,7 @@ async def tasks_leads_page(
         "page_title": titles[filter],
         "stage_labels": STAGE_LABELS,
         "manager_id": manager_id,
-        "priority": priority,
+        "stage": stage,
         "users": users,
     }
 
