@@ -75,19 +75,23 @@ async def _task_counts(session, user):
     }
 
 
-async def _query_leads_with_tasks(session, user, filter, manager_id=None):
+async def _query_leads_with_tasks(session, user, filter, manager_id=None, priority=None):
     """Лиды с задачами, отфильтрованными по filter.
 
     manager_id (для admin/supervisor) сужает до задач конкретного менеджера.
+    priority — фильтр по приоритету (1/2/3), применяется только в no_tasks.
     """
     task_filter, lead_filter = _user_scope_filters(user, manager_id)
     day_start, day_end = user_day_bounds(user)
 
     if filter == "no_tasks":
         has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id))
+        conds = [lead_filter, Lead.stage != "lost", ~has_tasks]
+        if priority:
+            conds.append(Lead.priority == priority)
         result = await session.execute(
             select(Lead)
-            .where(lead_filter, Lead.stage != "lost", ~has_tasks)
+            .where(*conds)
             .options(selectinload(Lead.assigned_manager))
             .order_by(Lead.name)
         )
@@ -342,6 +346,7 @@ async def tasks_leads_page(
     request: Request,
     filter: str = "total",
     manager_id: int | None = None,
+    priority: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -357,7 +362,10 @@ async def tasks_leads_page(
     if user.role.value == "manager":
         manager_id = None
 
-    leads = await _query_leads_with_tasks(session, user, filter, manager_id)
+    # Нормализация priority (как в kanban — leads.py:86)
+    priority = int(priority) if priority and priority.isdigit() else None
+
+    leads = await _query_leads_with_tasks(session, user, filter, manager_id, priority)
 
     titles = {
         "total": "Все задачи",
@@ -381,6 +389,7 @@ async def tasks_leads_page(
         "page_title": titles[filter],
         "stage_labels": STAGE_LABELS,
         "manager_id": manager_id,
+        "priority": priority,
         "users": users,
     }
 
