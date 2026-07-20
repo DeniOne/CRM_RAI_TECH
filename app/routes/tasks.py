@@ -364,6 +364,9 @@ async def tasks_leads_page(
 
     leads = await _query_leads_with_tasks(session, user, filter, manager_id, stage)
 
+    import logging
+    logging.warning(f"[tasks_leads] filter={filter} stage={stage!r} manager_id={manager_id} leads={len(leads)} hx={request.headers.get('hx-request')}")
+
     titles = {
         "total": "Все задачи",
         "today": "Задачи на сегодня",

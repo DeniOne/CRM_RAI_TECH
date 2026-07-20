@@ -4,7 +4,7 @@
 <h1 class="text-2xl font-medium mb-4 text-ink">{{ page_title }}</h1>
 
 <form class="flex gap-3 mb-4 flex-wrap items-center"
-      hx-get="/tasks/leads" hx-target="#tasks-leads-list" hx-swap="outerHTML" hx-trigger="change"
+      hx-get="/tasks/leads" hx-target="#tasks-leads-list" hx-swap="innerHTML" hx-trigger="change"
       hx-include="this">
     <input type="hidden" name="filter" value="{{ filter }}">
     <select name="stage"

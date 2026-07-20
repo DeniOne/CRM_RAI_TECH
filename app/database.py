@@ -4,7 +4,12 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-async_engine = create_async_engine(settings.DATABASE_URL, echo=False)
+async_engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    connect_args={"timeout": 30},
+    pool_pre_ping=True,
+)
 async_session_maker = async_sessionmaker(async_engine, expire_on_commit=False)
 
 
@@ -22,6 +27,10 @@ async def init_db():
         User, Region, Lead, StageHistory, Contact, ContactLog, Comment, Task, Deal,
         Document, DocumentTemplate, Invite, LibraryFolder, LibraryFile,
     )
+
+    # WAL mode для concurrent reads/writes — уменьшает "database is locked"
+    async with async_engine.begin() as conn:
+        await conn.execute(sqlalchemy_text("PRAGMA journal_mode=WAL"))
 
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
