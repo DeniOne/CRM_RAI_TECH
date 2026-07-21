@@ -59,7 +59,7 @@ async def _task_counts(session, user):
         )
     )
 
-    has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id, task_filter))
+    has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id, task_filter, Task.status.in_(ACTIVE_STATUSES)))
     leads_without = await session.scalar(
         select(func.count(Lead.id)).where(
             lead_filter,
@@ -86,7 +86,7 @@ async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=
     day_start, day_end = user_day_bounds(user)
 
     if filter == "no_tasks":
-        has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id, task_filter))
+        has_tasks = exists(select(Task.id).where(Task.lead_id == Lead.id, task_filter, Task.status.in_(ACTIVE_STATUSES)))
         conds = [lead_filter, Lead.stage != "lost", ~has_tasks]
         if stage:
             conds.append(Lead.stage == stage)
