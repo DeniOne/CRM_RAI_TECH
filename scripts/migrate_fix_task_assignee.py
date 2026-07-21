@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import update, select
-from app.database import engine
+from app.database import async_engine as engine
 from app.models import Task, Lead
 from sqlalchemy.ext.asyncio import AsyncSession
 
