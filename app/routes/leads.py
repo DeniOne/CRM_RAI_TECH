@@ -699,7 +699,7 @@ async def add_contact_log(
     if next_date:
         task = Task(
             lead_id=lead_id,
-            assigned_to=user.id,
+            assigned_to=lead.assigned_manager_id or user.id,
             created_by=user.id,
             title=f"Перезвонить: {lead.name}",
             due_date=datetime.combine(next_date, datetime.min.time()),
@@ -900,7 +900,7 @@ async def add_journal_entry(
 
         new_task = Task(
             lead_id=lead_id,
-            assigned_to=user.id,
+            assigned_to=lead.assigned_manager_id or user.id,
             created_by=user.id,
             title=task_name,
             due_date=due_dt,
@@ -1101,7 +1101,7 @@ async def create_task(
 
     task = Task(
         lead_id=lead_id,
-        assigned_to=user.id,
+        assigned_to=lead.assigned_manager_id or user.id,
         created_by=user.id,
         title=title,
         description=description or None,
