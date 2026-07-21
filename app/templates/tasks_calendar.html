@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Календарь задач — CRM RAI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-medium mb-1 text-ink">Календарь задач</h1>
+<p class="text-sm text-muted mb-4">{{ range_title }}</p>
+
+{% if current_user.role.value in ('supervisor', 'admin') %}
+<form class="flex gap-3 mb-6 flex-wrap items-center"
+      method="get" action="/tasks/calendar">
+    <select name="manager_id"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white"
+        onchange="this.form.submit()">
+        <option value="">Все менеджеры</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
+        {% endfor %}
+    </select>
+</form>
+{% endif %}
+
+{# Годовая сетка: 12 карточек месяцев. today_iso подсвечивает текущий день. #}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+{% for m in months %}
+<div class="bg-white rounded-xl border border-black/10 p-3">
+    <div class="text-sm font-medium text-ink mb-2">{{ m.name }}</div>
+    <table class="w-full border-collapse text-xs">
+        <thead>
+            <tr class="text-muted">
+                <th class="font-normal py-1 text-center w-[14%]">Пн</th>
+                <th class="font-normal py-1 text-center w-[14%]">Вт</th>
+                <th class="font-normal py-1 text-center w-[14%]">Ср</th>
+                <th class="font-normal py-1 text-center w-[14%]">Чт</th>
+                <th class="font-normal py-1 text-center w-[14%]">Пт</th>
+                <th class="font-normal py-1 text-center w-[14%]">Сб</th>
+                <th class="font-normal py-1 text-center w-[14%]">Вс</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for week in m.weeks %}
+            <tr>
+            {% for day in week %}
+                {% if day == 0 %}
+                <td class="py-1 text-center text-transparent select-none">·</td>
+                {% else %}
+                    {% set iso = "%04d-%02d-%02d"|format(m.year, m.month, day) %}
+                    {% set n = counts.get(iso, 0) %}
+                    {% set is_today = (iso == today_iso) %}
+                    <td class="py-0.5 text-center">
+                        {% if n > 0 %}
+                        <button type="button"
+                            onclick="openDrawer('/api/tasks/calendar/day/{{ iso }}{% if manager_id %}?manager_id={{ manager_id }}{% endif %}', 'Задачи на {{ day }} {{ ru_months_parent[m.month - 1] }} {{ m.year }}')"
+                            class="relative inline-flex items-center justify-center w-7 h-7 rounded-full
+                                   bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium
+                                   {% if is_today %}ring-2 ring-blue-500{% endif %}">
+                            {{ day }}
+                            <span class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] leading-none rounded-full px-1 py-0.5">{{ n }}</span>
+                        </button>
+                        {% else %}
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full
+                                     text-muted {% if is_today %}ring-2 ring-slate-300{% endif %}">{{ day }}</span>
+                        {% endif %}
+                    </td>
+                {% endif %}
+            {% endfor %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+</div>
+{% endblock %}

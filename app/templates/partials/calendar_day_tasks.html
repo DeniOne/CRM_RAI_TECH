@@ -1,0 +1,13 @@
+{# HTMX-фрагмент для drawer-а: активные задачи на выбранную дату.
+   Переменные: tasks (list[Task] с подгруженным lead), day_title, iso_date, current_user.
+   Переиспользует task_row.html — смена статуса через hx-post работает из drawer-а. #}
+<div class="space-y-2">
+    {% if tasks %}
+    <div class="text-sm text-muted mb-3">Активных задач на {{ day_title }}: {{ tasks|length }}</div>
+    {% for task in tasks %}
+        {% include "partials/task_row.html" %}
+    {% endfor %}
+    {% else %}
+    <div class="text-sm text-muted py-8 text-center">На {{ day_title }} нет активных задач.</div>
+    {% endif %}
+</div>

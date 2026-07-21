@@ -59,10 +59,18 @@
             var item = document.querySelector('.sidebar-subitem[data-filter="' + filter + '"]');
             if (item) item.classList.add("bg-slate-100", "font-medium");
         }
+        /* Подсветка пункта «Календарь» на странице /tasks/calendar* (у неё нет ?filter). */
+        if (window.location.pathname.indexOf("/tasks/calendar") === 0) {
+            var cal = document.querySelector(".sidebar-subitem[data-calendar-link]");
+            if (cal) cal.classList.add("bg-slate-100", "font-medium");
+        }
         var managerId = params.get("manager_id");
         if (managerId) {
             document.querySelectorAll(".sidebar-subitem").forEach(function (a) {
-                a.href = a.href + "&manager_id=" + managerId;
+                /* Защита: ссылка вида /tasks/calendar без "?" раньше давала битый URL
+                 * "/tasks/calendar&manager_id=...". Корректно ставим ? если его нет. */
+                var sep = a.href.indexOf("?") === -1 ? "?" : "&";
+                a.href = a.href + sep + "manager_id=" + managerId;
             });
         }
     }

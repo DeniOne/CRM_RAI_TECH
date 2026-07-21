@@ -1,4 +1,5 @@
-from datetime import datetime
+import calendar as _calendar
+from datetime import datetime, time, timedelta
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse
@@ -11,7 +12,7 @@ from app.database import get_session
 from app.models import Task, Lead, User
 from app.routes.ticker import ACTIVE_STATUSES
 from app.services.funnel_service import STAGE_LABELS
-from app.tz_utils import user_day_bounds
+from app.tz_utils import user_day_bounds, user_now
 
 router = APIRouter()
 
@@ -404,5 +405,197 @@ async def tasks_leads_page(
     return templates.TemplateResponse(
         request=request,
         name="tasks_leads.html",
+        context=context,
+    )
+
+
+# ── Календарь задач ──────────────────────────────────────────────────────────
+# Годовая сетка: 12 месяцев от ТЕКУЩЕГО месяца пользователя (сегодня июль 2026 →
+# июль 2026 … июнь 2027). В ячейках — число активных задач на дату. Клик по дате
+# открывает drawer со списком задач (HTMX-фрагмент /api/tasks/calendar/day/{iso}).
+
+_RU_MONTHS = [
+    "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+]
+_RU_MONTHS_PARENT = [
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+]
+
+
+def _calendar_range(user) -> tuple[datetime, datetime]:
+    """12 месяцев от текущего месяца пользователя: [первый день start_месяца,
+    последний день (start_месяц + 11)). Возвращает (range_start, range_end) —
+    границы для фильтра Task.due_date.between(...) (оба включительно).
+    """
+    now = user_now(user)
+    start = datetime(now.year, now.month, 1)
+    # последний день 12-го месяца: первый день 13-го − 1 секунда
+    end_month = now.month + 11
+    end_year = now.year + (end_month - 1) // 12
+    end_month = ((end_month - 1) % 12) + 1
+    last_day = _calendar.monthrange(end_year, end_month)[1]
+    end = datetime(end_year, end_month, last_day, 23, 59, 59, 999999)
+    return start, end
+
+
+def _build_month_grid(year: int, month: int):
+    """Недели месяца для рендера: список недель (Пн…Вс), дни вне месяца = None.
+    firstweekday=0 → понедельник (RU-локаль, как в Flatpickr проекта).
+    """
+    cal = _calendar.Calendar(firstweekday=0)
+    return cal.monthdayscalendar(year, month)
+
+
+@router.get("/tasks/calendar", response_class=HTMLResponse)
+async def tasks_calendar_page(
+    request: Request,
+    manager_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    # Менеджер видит только свои задачи — игнорируем manager_id (как в /tasks/leads)
+    if user.role.value == "manager":
+        manager_id = None
+
+    range_start, range_end = _calendar_range(user)
+    task_filter, _ = _user_scope_filters(user, manager_id)
+
+    # Активные задачи в диапазоне due_date, с подгруженным лидом (для drawer).
+    result = await session.execute(
+        select(Task)
+        .where(
+            Task.status.in_(ACTIVE_STATUSES),
+            task_filter,
+            Task.due_date.is_not(None),
+            Task.due_date.between(range_start, range_end),
+        )
+        .options(selectinload(Task.lead))
+    )
+    tasks_in_range = result.scalars().all()
+
+    # Распределение по датам (день из due_date в зоне сервера — соответствует
+    # конвенции tz_utils: naive datetime в локальном времени исполнителя).
+    counts: dict[str, int] = {}
+    for t in tasks_in_range:
+        key = t.due_date.date().isoformat()
+        counts[key] = counts.get(key, 0) + 1
+
+    # Структура 12 месяцев для шаблона
+    now = user_now(user)
+    months = []
+    cur_year, cur_month = now.year, now.month
+    for i in range(12):
+        weeks = _build_month_grid(cur_year, cur_month)
+        months.append({
+            "year": cur_year,
+            "month": cur_month,
+            "name": f"{_RU_MONTHS[cur_month - 1]} {cur_year}",
+            "weeks": weeks,
+        })
+        cur_month += 1
+        if cur_month > 12:
+            cur_month = 1
+            cur_year += 1
+
+    # Список менеджеров для селекта (admin/supervisor) — симметрично с /tasks/leads
+    users = []
+    if user.role.value in ("supervisor", "admin"):
+        users_result = await session.execute(
+            select(User).where(User.is_active == True).order_by(User.full_name)
+        )
+        users = users_result.scalars().all()
+
+    today_iso = now.date().isoformat()
+    range_title = (
+        f"{_RU_MONTHS[months[0]['month'] - 1]} {months[0]['year']} — "
+        f"{_RU_MONTHS[months[-1]['month'] - 1]} {months[-1]['year']}"
+    )
+
+    context = {
+        "current_user": user,
+        "months": months,
+        "counts": counts,
+        "today_iso": today_iso,
+        "range_title": range_title,
+        "manager_id": manager_id,
+        "users": users,
+        "ru_months_parent": _RU_MONTHS_PARENT,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="tasks_calendar.html",
+        context=context,
+    )
+
+
+def _format_day_title(d: datetime.date) -> str:
+    """«15 июля 2026» — заголовок drawer-а по дате."""
+    return f"{d.day} {_RU_MONTHS_PARENT[d.month - 1]} {d.year}"
+
+
+@router.get("/api/tasks/calendar/day/{iso_date}", response_class=HTMLResponse)
+async def tasks_calendar_day(
+    request: Request,
+    iso_date: str,
+    manager_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """HTMX-фрагмент для drawer-а: активные задачи на указанную дату."""
+    from app.main import templates
+
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    # Парсим дату
+    try:
+        d = datetime.strptime(iso_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Неверный формат даты")
+
+    if user.role.value == "manager":
+        manager_id = None
+
+    # Границы дня в серверном времени (конвенция tz_utils)
+    day_start = datetime(d.year, d.month, d.day, 0, 0, 0)
+    day_end = datetime(d.year, d.month, d.day, 23, 59, 59, 999999)
+
+    task_filter, _ = _user_scope_filters(user, manager_id)
+    result = await session.execute(
+        select(Task)
+        .where(
+            Task.status.in_(ACTIVE_STATUSES),
+            task_filter,
+            Task.due_date.between(day_start, day_end),
+        )
+        .options(selectinload(Task.lead))
+        .order_by(Task.due_date)
+    )
+    tasks = result.scalars().all()
+
+    now = datetime.now()
+    for t in tasks:
+        t.is_overdue = (
+            bool(t.due_date)
+            and t.due_date < now
+            and t.status in ("pending", "in_progress")
+        )
+
+    context = {
+        "current_user": user,
+        "tasks": tasks,
+        "day_title": _format_day_title(d),
+        "iso_date": iso_date,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/calendar_day_tasks.html",
         context=context,
     )
