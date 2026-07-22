@@ -365,6 +365,9 @@ async def lead_card(
     users_result = await session.execute(select(User).where(User.is_active == True))
     users = users_result.scalars().all()
 
+    regions_result = await session.execute(select(Region).order_by(Region.name))
+    regions = regions_result.scalars().all()
+
     entries = _build_journal_entries(lead)
 
     return templates.TemplateResponse(
@@ -374,7 +377,9 @@ async def lead_card(
             "current_user": user,
             "lead": lead,
             "stage_label": STAGE_LABELS.get(lead.stage, lead.stage),
+            "stages": [{"code": s, "label": STAGE_LABELS[s]} for s in STAGES],
             "users": users,
+            "regions": regions,
             "entries": entries,
             "kanban_query": kanban_query,
         },
@@ -928,43 +933,96 @@ async def add_journal_entry(
     return await _render_journal(request, session, lead_id, user)
 
 
-@router.post("/leads/{lead_id}/assign", response_class=HTMLResponse)
+@router.post("/api/leads/{lead_id}/assign")
 async def assign_manager(
     request: Request,
     lead_id: int,
-    manager_id: int = Form(...),
+    manager_id: str = Form(""),
     session: AsyncSession = Depends(get_session),
 ):
-    from app.main import templates
-    user = await get_current_user(request, session)
+    """Назначение/смена менеджера лида. JSON-API для inline-редактирования шапки.
 
+    manager_id="" или невалидный → снимает менеджера (assigned_manager_id=None).
+    Возвращает актуальные данные для обновления шапки без перезагрузки.
+    """
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
     if user.role.value not in ("supervisor", "admin"):
         raise HTTPException(status_code=403)
 
     result = await session.execute(
-        select(Lead).where(Lead.id == lead_id).options(
-            selectinload(Lead.contacts),
-            selectinload(Lead.contact_logs),
-            selectinload(Lead.comments),
-            selectinload(Lead.tasks),
-            selectinload(Lead.region),
-        )
+        select(Lead).where(Lead.id == lead_id).options(selectinload(Lead.assigned_manager))
     )
     lead = result.scalar_one_or_none()
     if not lead:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Лид не найден")
 
-    lead.assigned_manager_id = manager_id
+    # Пустая строка из <select> «Не назначен» → None. Иначе парсим int.
+    mid = None
+    if manager_id and str(manager_id).strip().isdigit():
+        mid = int(manager_id)
+        # Проверяем существование пользователя
+        u = await session.execute(select(User).where(User.id == mid))
+        if u.scalar_one_or_none() is None:
+            raise HTTPException(status_code=422, detail="Менеджер не найден")
+
+    lead.assigned_manager_id = mid
     await session.commit()
+    await session.refresh(lead, ["assigned_manager"])
 
-    users_result = await session.execute(select(User).where(User.is_active == True))
-    users = users_result.scalars().all()
+    return {
+        "ok": True,
+        "manager_id": lead.assigned_manager_id,
+        "manager_name": lead.assigned_manager.full_name if lead.assigned_manager else None,
+    }
 
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/lead_info_form.html",
-        context={"current_user": user, "lead": lead, "users": users},
+
+@router.post("/api/leads/{lead_id}/region")
+async def set_lead_region(
+    request: Request,
+    lead_id: int,
+    region_id: str = Form(""),
+    new_region: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+):
+    """Смена региона лида. JSON-API для inline-редактирования шапки.
+
+    Приоритет: region_id (существующий) > new_region (создать новый).
+    region_id="" и new_region="" → снимает регион (region_id=None).
+    """
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+
+    result = await session.execute(
+        select(Lead).where(Lead.id == lead_id).options(selectinload(Lead.region))
     )
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+
+    region = None
+    if region_id and str(region_id).strip().isdigit():
+        rid = int(region_id)
+        r = await session.execute(select(Region).where(Region.id == rid))
+        region = r.scalar_one_or_none()
+        if not region:
+            raise HTTPException(status_code=422, detail="Регион не найден")
+    elif new_region.strip():
+        region = await _get_or_create_region(session, new_region.strip())
+
+    lead.region_id = region.id if region else None
+    await session.commit()
+    await session.refresh(lead, ["region"])
+
+    return {
+        "ok": True,
+        "region_id": lead.region_id,
+        "region_name": lead.region.name if lead.region else None,
+        # Все регионы — чтобы обновить dropdown в шапке (на случай создания нового)
+        "regions": [{"id": r.id, "name": r.name} for r in (await session.execute(select(Region).order_by(Region.name))).scalars().all()],
+    }
 
 
 @router.delete("/leads/{lead_id}")

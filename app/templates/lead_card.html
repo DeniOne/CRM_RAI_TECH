@@ -34,13 +34,52 @@
                     Отмена
                 </button>
             </div>
-            <div class="flex gap-4 mt-2 text-sm text-muted flex-wrap">
-                <span>Стадия: <strong class="text-ink">{{ stage_label }}</strong></span>
+            <div class="flex gap-4 mt-2 text-sm text-muted flex-wrap items-center">
+                <span class="inline-flex items-center gap-1">
+                    Стадия:
+                    <strong class="text-ink" id="header-stage-label">{{ stage_label }}</strong>
+                    {% if current_user.role.value in ('supervisor', 'admin') %}
+                    <button onclick="openStageEditor()" title="Сменить стадию"
+                            class="text-muted hover:text-ink transition-colors ml-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </button>
+                    {% endif %}
+                </span>
                 <span>Уровень: <strong class="text-ink">{{ lead.level or '—' }}</strong></span>
-                <span>Регион: <strong class="text-ink">{{ lead.region.name if lead.region else '—' }}</strong></span>
-                {% if lead.assigned_manager %}
-                <span>Менеджер: <strong class="text-ink">{{ lead.assigned_manager.full_name }}</strong></span>
+                <span class="inline-flex items-center gap-1">
+                    Регион:
+                    <strong class="text-ink" id="header-region-label">{{ lead.region.name if lead.region else '—' }}</strong>
+                    <button onclick="openRegionEditor()" title="Сменить регион"
+                            class="text-muted hover:text-ink transition-colors ml-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </button>
+                </span>
+                {% if current_user.role.value in ('supervisor', 'admin') %}
+                <span class="inline-flex items-center gap-1">
+                    Менеджер:
+                    <strong class="text-ink" id="header-manager-label">{{ lead.assigned_manager.full_name if lead.assigned_manager else 'не назначен' }}</strong>
+                    <button onclick="openManagerEditor()" title="Сменить менеджера"
+                            class="text-muted hover:text-ink transition-colors ml-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </button>
+                </span>
                 {% endif %}
+            </div>
+
+            <!-- Inline-редактор стадии/менеджера/региона (popover) -->
+            <div id="header-editor" class="hidden mt-3 border border-black/10 rounded-lg p-3 bg-slate-50 text-sm">
+                <div id="header-editor-body"></div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="saveHeaderEdit()" id="header-editor-save"
+                            class="bg-ink text-white px-4 py-1.5 rounded-lg text-sm hover:bg-ink/90">Сохранить</button>
+                    <button onclick="closeHeaderEditor()" class="text-muted hover:text-ink text-sm px-2">Отмена</button>
+                </div>
             </div>
         </div>
         <div class="shrink-0 flex items-center gap-2">
@@ -110,6 +149,187 @@ function switchTab(name) {
 var LEAD_ID = {{ lead.id }};
 var LEAD_NAME = {{ lead.name | tojson }};
 
+// Данные для inline-редакторов шапки. STAGES — упорядоченный список кодов с метками.
+var HEADER_STAGES = {{ stages | tojson }};
+// tojson на ORM-объектах Regional не сработает напрямую — соберём плоский список:
+var HEADER_REGIONS = [
+    {% for r in regions %}
+    {"id": {{ r.id }}, "name": {{ r.name | tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+var HEADER_USERS = [
+    {% for u in users %}
+    {"id": {{ u.id }}, "name": {{ u.full_name | tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+var HEADER_CURRENT_MANAGER_ID = {{ lead.assigned_manager_id if lead.assigned_manager_id else 'null' }};
+var HEADER_CURRENT_REGION_ID = {{ lead.region_id if lead.region_id else 'null' }};
+var HEADER_CURRENT_STAGE = {{ lead.stage | tojson }};
+
+var HEADER_EDIT_MODE = null; // 'stage' | 'manager' | 'region'
+
+function openStageEditor() {
+    HEADER_EDIT_MODE = 'stage';
+    var body = document.getElementById('header-editor-body');
+    var html = '<label class="block text-xs text-muted mb-1">Стадия</label>';
+    html += '<select id="header-edit-input" class="w-full max-w-md border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">';
+    HEADER_STAGES.forEach(function(s) {
+        var sel = s.code === HEADER_CURRENT_STAGE ? 'selected' : '';
+        html += '<option value="' + s.code + '" ' + sel + '>' + escapeHtmlSimple(s.label) + '</option>';
+    });
+    html += '</select>';
+    html += '<div class="text-xs text-muted mt-1">Переходы проверяются по тем же правилам, что и в канбане.</div>';
+    body.innerHTML = html;
+    showHeaderEditor();
+}
+
+function openManagerEditor() {
+    HEADER_EDIT_MODE = 'manager';
+    var body = document.getElementById('header-editor-body');
+    var html = '<label class="block text-xs text-muted mb-1">Менеджер</label>';
+    html += '<select id="header-edit-input" class="w-full max-w-md border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">';
+    html += '<option value="">— Не назначен —</option>';
+    HEADER_USERS.forEach(function(u) {
+        var sel = u.id === HEADER_CURRENT_MANAGER_ID ? 'selected' : '';
+        html += '<option value="' + u.id + '" ' + sel + '>' + escapeHtmlSimple(u.name) + '</option>';
+    });
+    html += '</select>';
+    body.innerHTML = html;
+    showHeaderEditor();
+}
+
+function openRegionEditor() {
+    HEADER_EDIT_MODE = 'region';
+    var body = document.getElementById('header-editor-body');
+    var html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">';
+    html += '<div>';
+    html += '<label class="block text-xs text-muted mb-1">Из существующих</label>';
+    html += '<select id="header-region-select" class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">';
+    html += '<option value="">— Не указан —</option>';
+    HEADER_REGIONS.forEach(function(r) {
+        var sel = r.id === HEADER_CURRENT_REGION_ID ? 'selected' : '';
+        html += '<option value="' + r.id + '" ' + sel + '>' + escapeHtmlSimple(r.name) + '</option>';
+    });
+    html += '</select>';
+    html += '</div>';
+    html += '<div>';
+    html += '<label class="block text-xs text-muted mb-1">Или добавить новый</label>';
+    html += '<input type="text" id="header-region-new" placeholder="Название нового региона..."'
+         + ' class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white"'
+         + ' oninput="var s=document.getElementById(\'header-region-select\'); if(this.value.trim()){s.selectedIndex=0; s.disabled=true;} else {s.disabled=false;}">';
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="text-xs text-muted mt-1">Если заполнен «новый регион» — выбор из списка игнорируется.</div>';
+    body.innerHTML = html;
+    showHeaderEditor();
+}
+
+function showHeaderEditor() {
+    document.getElementById('header-editor').classList.remove('hidden');
+    setTimeout(function() {
+        var inp = document.getElementById('header-edit-input');
+        if (inp) inp.focus();
+    }, 0);
+}
+
+function closeHeaderEditor() {
+    document.getElementById('header-editor').classList.add('hidden');
+    HEADER_EDIT_MODE = null;
+}
+
+function saveHeaderEdit() {
+    var saveBtn = document.getElementById('header-editor-save');
+    if (HEADER_EDIT_MODE === 'stage') {
+        var stage = document.getElementById('header-edit-input').value;
+        if (stage === HEADER_CURRENT_STAGE) { closeHeaderEditor(); return; }
+        var fd = new FormData();
+        fd.append('stage', stage);
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Сохранение...';
+        fetch('/api/leads/' + LEAD_ID + '/stage', { method: 'POST', body: fd })
+            .then(function(r) {
+                saveBtn.disabled = false; saveBtn.textContent = 'Сохранить';
+                return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+            })
+            .then(function(res) {
+                if (res.ok) {
+                    HEADER_CURRENT_STAGE = res.data.stage;
+                    var label = (HEADER_STAGES.find(function(s) { return s.code === res.data.stage; }) || {}).label || res.data.stage;
+                    document.getElementById('header-stage-label').textContent = label;
+                    closeHeaderEditor();
+                    showToast('Стадия обновлена', 'success');
+                } else {
+                    var errors = res.data.detail && res.data.detail.errors ? res.data.detail.errors : [res.data.detail || 'Ошибка'];
+                    showToast('Невозможно сменить стадию: ' + errors.join('; '), 'error');
+                }
+            })
+            .catch(function(err) {
+                saveBtn.disabled = false; saveBtn.textContent = 'Сохранить';
+                showToast('Ошибка запроса: ' + err.message, 'error');
+            });
+    } else if (HEADER_EDIT_MODE === 'manager') {
+        var managerId = document.getElementById('header-edit-input').value;
+        var fd = new FormData();
+        fd.append('manager_id', managerId);
+        saveBtn.disabled = true; saveBtn.textContent = 'Сохранение...';
+        fetch('/api/leads/' + LEAD_ID + '/assign', { method: 'POST', body: fd })
+            .then(function(r) { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    HEADER_CURRENT_MANAGER_ID = data.manager_id;
+                    document.getElementById('header-manager-label').textContent = data.manager_name || 'не назначен';
+                    closeHeaderEditor();
+                    showToast(data.manager_name ? ('Менеджер: ' + data.manager_name) : 'Менеджер снят', 'success');
+                } else {
+                    showToast('Ошибка: ' + (data.detail || 'не удалось сохранить'), 'error');
+                }
+            })
+            .catch(function(err) {
+                saveBtn.disabled = false; saveBtn.textContent = 'Сохранить';
+                showToast('Ошибка запроса: ' + err.message, 'error');
+            });
+    } else if (HEADER_EDIT_MODE === 'region') {
+        var regionId = document.getElementById('header-region-select').value;
+        var newRegion = (document.getElementById('header-region-new').value || '').trim();
+        if (newRegion) {
+            regionId = '';
+        } else if (regionId && String(HEADER_CURRENT_REGION_ID) === regionId) {
+            closeHeaderEditor(); return;
+        }
+        var fd = new FormData();
+        fd.append('region_id', regionId);
+        fd.append('new_region', newRegion);
+        saveBtn.disabled = true; saveBtn.textContent = 'Сохранение...';
+        fetch('/api/leads/' + LEAD_ID + '/region', { method: 'POST', body: fd })
+            .then(function(r) { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    HEADER_CURRENT_REGION_ID = data.region_id;
+                    document.getElementById('header-region-label').textContent = data.region_name || '—';
+                    // Обновляем список регионов в шапке (на случай создания нового)
+                    if (data.regions) {
+                        HEADER_REGIONS = data.regions;
+                    }
+                    closeHeaderEditor();
+                    showToast('Регион обновлён', 'success');
+                } else {
+                    showToast('Ошибка: ' + (data.detail || 'не удалось сохранить'), 'error');
+                }
+            })
+            .catch(function(err) {
+                saveBtn.disabled = false; saveBtn.textContent = 'Сохранить';
+                showToast('Ошибка запроса: ' + err.message, 'error');
+            });
+    }
+}
+
+function escapeHtmlSimple(t) {
+    if (t == null) return '';
+    return String(t).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
 function editLeadName() {
     document.getElementById('name-view').classList.add('hidden');
     var editEl = document.getElementById('name-edit');
@@ -176,16 +396,20 @@ function saveLeadName() {
 }
 
 function sendLeadToChat(leadId) {
-    // Статичные данные (stage/level/region/inn) из шаблона
-    var meta = {{ {'stage': stage_label, 'level': lead.level or '—', 'region': lead.region.name if lead.region else '—', 'inn': lead.inn or ''} | tojson }};
     // Название — из DOM, чтобы всегда было актуальным (после inline-редактирования)
     var name = document.getElementById('lead-name-display').textContent;
+    // Стадия/регион — тоже из DOM (могли быть изменены inline без перезагрузки).
+    // Уровень и ИНН берём из meta-данных серверного рендера (они не редактируются в шапке).
+    var stageLabel = document.getElementById('header-stage-label').textContent;
+    var regionLabel = document.getElementById('header-region-label').textContent;
+    var level = {{ (lead.level or '—') | tojson }};
+    var inn = {{ (lead.inn or '') | tojson }};
 
     var lines = ['Контрагент: ' + name];
-    lines.push('Стадия: ' + meta.stage);
-    lines.push('Уровень: ' + meta.level);
-    lines.push('Регион: ' + meta.region);
-    if (meta.inn) lines.push('ИНН: ' + meta.inn);
+    lines.push('Стадия: ' + stageLabel);
+    lines.push('Уровень: ' + level);
+    lines.push('Регион: ' + regionLabel);
+    if (inn) lines.push('ИНН: ' + inn);
     lines.push('');
     lines.push('ID лида: ' + leadId);
 
