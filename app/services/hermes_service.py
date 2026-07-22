@@ -1,6 +1,22 @@
+import logging
+
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _hermes_timeout() -> httpx.Timeout:
+    """Раздельные лимиты по фазам соединения.
+
+    connect/write/pool — короткие (10с): если Hermes не принимает запрос или
+    соединение встало, падаем быстро и понятно (ConnectError, а не «не ответил
+    вовремя»). read — длинный (HERMES_TIMEOUT): агентные запросы с tool-use
+    легитимно идут десятки секунд, и ответ надо дождаться.
+    """
+    read = settings.HERMES_TIMEOUT
+    return httpx.Timeout(connect=10.0, read=read, write=10.0, pool=10.0)
 
 
 async def send_to_hermes(
@@ -18,6 +34,10 @@ async def send_to_hermes(
 
     search_mode: "crm" (по умолчанию — primary-поиск в CRM) или "internet"
     (primary-поиск в интернете, но CRM доступна если запрос явно про данные CRM).
+
+    При таймауте делает одну тихую повторную попытку тем же payload — зависания
+    агента часто стохастичны (долгий веб-поиск, ретраи upstream-модели), и второй
+    запрос нередко укладывается.
     """
     if not settings.HERMES_ENABLED:
         return {
@@ -72,41 +92,66 @@ async def send_to_hermes(
     if settings.HERMES_API_TOKEN:
         headers["Authorization"] = f"Bearer {settings.HERMES_API_TOKEN}"
 
-    try:
-        async with httpx.AsyncClient(timeout=settings.HERMES_TIMEOUT) as client:
-            resp = await client.post(
-                f"{settings.HERMES_API_URL}/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # OpenAI формат: choices[0].message.content
-            reply = (
-                data.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "Пустой ответ от агента.")
+    # Одна повторная попытка при таймауте (зависания агента часто стохастичны).
+    last_exc: Exception | None = None
+    for attempt in (1, 2):
+        try:
+            async with httpx.AsyncClient(timeout=_hermes_timeout()) as client:
+                resp = await client.post(
+                    f"{settings.HERMES_API_URL}/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                # OpenAI формат: choices[0].message.content
+                reply = (
+                    data.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "Пустой ответ от агента.")
+                )
+                return {
+                    "reply": reply,
+                    "actions": [],
+                    "error": None,
+                }
+        except httpx.TimeoutException as e:
+            last_exc = e
+            if attempt == 1:
+                logger.warning(
+                    "Hermes timeout (attempt 1/%ds), retrying once — %r",
+                    settings.HERMES_TIMEOUT,
+                    message[:80],
+                )
+                continue
+            logger.warning(
+                "Hermes timeout after retry (attempt 2): %r", message[:80]
             )
             return {
-                "reply": reply,
+                "reply": (
+                    "Не удалось получить ответ за отведённое время — запрос, "
+                    "видимо, потребовал долгого поиска. Попробуйте сформулировать "
+                    "короче или уточнить (например, название компании вместо номера "
+                    "телефона), либо повторите через минуту."
+                ),
                 "actions": [],
-                "error": None,
+                "error": "timeout",
             }
-    except httpx.ConnectError:
-        return {
-            "reply": "Не удалось подключиться к агенту. Проверьте, что Hermes запущен.",
-            "actions": [],
-            "error": "connection",
-        }
-    except httpx.TimeoutException:
-        return {
-            "reply": "Агент не ответил вовремя. Попробуйте ещё раз.",
-            "actions": [],
-            "error": "timeout",
-        }
-    except Exception as e:
-        return {
-            "reply": f"Произошла ошибка при обращении к агенту: {str(e)}",
-            "actions": [],
-            "error": str(e),
-        }
+        except httpx.ConnectError:
+            return {
+                "reply": "Не удалось подключиться к агенту. Проверьте, что Hermes запущен.",
+                "actions": [],
+                "error": "connection",
+            }
+        except Exception as e:
+            return {
+                "reply": f"Произошла ошибка при обращении к агенту: {str(e)}",
+                "actions": [],
+                "error": str(e),
+            }
+    # Сюда попадаем только если цикл завершился нетипично.
+    return {
+        "reply": f"Произошла ошибка при обращении к агенту: {last_exc}",
+        "actions": [],
+        "error": str(last_exc) if last_exc else "unknown",
+    }

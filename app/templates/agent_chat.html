@@ -87,6 +87,10 @@ function escapeHtml(t){var d=document.createElement('div');d.textContent=t;retur
 document.getElementById('message-input').addEventListener('input',function(){autoResize(this);});
 document.getElementById('message-input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('chat-form').dispatchEvent(new Event('submit'));}});
 
+// Клиентский таймаут (мс): чуть больше серверного, чтобы сервер успел вернуть
+// свой timeout-ответ раньше, чем браузер оборвёт fetch. Прокинуто из роута.
+var CLIENT_TIMEOUT_MS = ({{ client_timeout|default(315) }}) * 1000;
+
 document.getElementById('chat-form').addEventListener('submit', async function(e){
     e.preventDefault();
     var input=document.getElementById('message-input');
@@ -107,21 +111,38 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     hist.appendChild(tp);
     scrollToBottom();
 
-    input.value='';input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');autoResize(input);
+    // Не чистим input сразу: текст держим до успешного ответа, чтобы при
+    // ошибке/таймауте вернуть его в поле и дать повторить одним кликом.
+    input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');
+
+    // AbortController — обрываем fetch по клиентскому таймауту, чтобы браузер
+    // не висел «Агент думает...» вечно, если сервер молчит дольше лимита.
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort();},CLIENT_TIMEOUT_MS);
 
     try{
         var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id',ctxLeadId||'');fd.append('search_mode',document.getElementById('search-mode').value);
-        var resp=await fetch('/agent/send',{method:'POST',body:fd});
+        var resp=await fetch('/agent/send',{method:'POST',body:fd,signal:controller.signal});
+        clearTimeout(timer);
         var html=await resp.text();
         var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
         var tmp=document.createElement('div');tmp.innerHTML=html.trim();
         while(tmp.firstChild){hist.appendChild(tmp.firstChild);}
         scrollToBottom();
+        // Успех — чистим черновик.
+        input.value='';autoResize(input);
     }catch(err){
+        clearTimeout(timer);
         var ti2=document.getElementById('typing-indicator');if(ti2)ti2.remove();
+        var isTimeout = (err && err.name==='AbortError');
+        var errText = isTimeout
+            ? 'Не удалось получить ответ за отведённое время. Запрос, видимо, потребовал долгого поиска — попробуйте сформулировать короче или повторите через минуту.'
+            : 'Ошибка соединения. Попробуйте снова.';
         var eb=document.createElement('div');eb.className='text-left';
-        eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Ошибка соединения. Попробуйте снова.</div></div>';
+        eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">'+escapeHtml(errText)+'</div></div>';
         hist.appendChild(eb);scrollToBottom();
+        // Вернём исходный текст в поле, чтобы можно было повторить без ручного ввода.
+        input.value=msg;autoResize(input);
     }finally{
         input.disabled=false;btn.disabled=false;btn.classList.remove('opacity-50','cursor-not-allowed');input.focus();
     }

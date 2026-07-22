@@ -10,8 +10,16 @@ class Settings(BaseSettings):
 
     HERMES_API_URL: str = "http://localhost:8080"
     HERMES_API_TOKEN: str = ""
-    HERMES_TIMEOUT: int = 30
+    # Серверный read-таймаут httpx (сколько ждать ответ агента). Агентные запросы
+    # с tool-use (MCP + веб-поиск) легитимно идут десятки секунд — 30с не хватает,
+    # поэтому дефолт поднят до 300с. Соединение/запись обрываются быстрее (см.
+    # hermes_service.py — раздельный httpx.Timeout).
+    HERMES_TIMEOUT: int = 300
     HERMES_ENABLED: bool = True
+    # Клиентский (браузерный) таймаут: на сколько секунд дольше серверного браузер
+    # ждёт ответ перед тем, как показать «не дождались» (AbortController). Буфер
+    # нужен, чтобы сервер успел вернуть свой timeout-ответ раньше браузера.
+    HERMES_CLIENT_TIMEOUT_BUFFER: int = 15
 
     DADATA_API_KEY: str = ""
     DADATA_SECRET_KEY: str = ""

@@ -6,6 +6,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
+from app.config import settings
 from app.database import get_session
 from app.models import AgentMessage
 from app.services.hermes_service import send_to_hermes
@@ -46,6 +47,9 @@ async def agent_chat_page(
             "messages": messages,
             "prefill_message": prefill_message,
             "prefill_lead_id": prefill_lead_id,
+            # Браузерный таймаут = серверный + буфер, чтобы сервер успел вернуть
+            # свой timeout-ответ раньше, чем браузер оборвёт fetch.
+            "client_timeout": settings.HERMES_TIMEOUT + settings.HERMES_CLIENT_TIMEOUT_BUFFER,
         },
     )
 
