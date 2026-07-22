@@ -78,7 +78,11 @@ async def agent_send(
         context_lead_id=context_lead_id,
     )
     session.add(user_msg)
-    await session.flush()
+    # Коммитим сообщение пользователя ДО долгого вызова Hermes. Иначе INSERT
+    # (flush выше) открывает write-транзакцию SQLite, которая держится всё время
+    # ожидания агента (десятки секунд) — и блокирует любую другую запись в CRM
+    # (journal-entry, смена статуса задачи и т.д.) → «database is locked» → 500.
+    await session.commit()
 
     result = await send_to_hermes(
         message=message,
