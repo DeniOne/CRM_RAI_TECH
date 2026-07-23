@@ -25,6 +25,15 @@ DB_PATH = os.environ.get(
     str(Path(__file__).resolve().parent / "storage" / "crm.db"),
 )
 
+# DaData — для внешнего lookup'а компаний по ИНН (быстрый API, ~1с, не блокирует
+# ботов — в отличие от браузера по сайтам-реестрам, который виснет по 60с).
+# Ключи прокидываются через env MCP-сервера (см. config Hermes, mcp_servers).
+DADATA_API_KEY = os.environ.get("DADATA_API_KEY", "")
+DADATA_SECRET_KEY = os.environ.get("DADATA_SECRET_KEY", "")
+DADATA_SUGGEST_URL = "https://suggestions.dadata.ru/suggestions/api/4_1/rs"
+DADATA_FIND_PARTY_URL = f"{DADATA_SUGGEST_URL}/findById/party"
+DADATA_FIND_AFFILIATED_URL = f"{DADATA_SUGGEST_URL}/findAffiliated/party"
+
 mcp = FastMCP(
     "crm-rai-tech",
     instructions=(
@@ -729,6 +738,147 @@ def change_lead_stage(lead_id: int, new_stage: str, user_id: int, note: Optional
         }, ensure_ascii=False)
     finally:
         conn.close()
+
+
+# ===========================================================================
+# TOOLS: DaData (внешний lookup компаний по ИНН)
+# ===========================================================================
+#
+# Назначение: быстрые (~1с) запросы к DaData по ИНН — профиль компании и
+# связанные юрлица. Альтернатива веб-поиску/браузеру по сайтам-реестрам,
+# который виснет по 60с на антиспам-защите и разгоняет агента до 504.
+# Кейс: «ООО Бугров, ИНН 2263023530 — это холдинг или нет?» → профиль +
+# affiliated (0 связанных = не холдинг) за секунды вместо минут.
+
+import urllib.request
+import urllib.error
+
+
+def _dadata_request(url: str, payload: dict) -> dict:
+    """POST JSON к DaData. Возвращает распарсенный ответ или {error: ...}."""
+    if not DADATA_API_KEY:
+        return {"error": "DaData API key не настроен (DADATA_API_KEY пуст)"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Token {DADATA_API_KEY}",
+    }
+    if DADATA_SECRET_KEY:
+        headers["X-Secret"] = DADATA_SECRET_KEY
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        return {"error": f"DaData HTTP {e.code}: {e.reason}"}
+    except urllib.error.URLError as e:
+        return {"error": f"DaData недоступна: {e.reason}"}
+    except Exception as e:
+        return {"error": f"DaData: {e}"}
+
+
+def _extract_party(suggestion: dict) -> dict:
+    """Базовые реквизиты из одного suggestion DaData."""
+    data = suggestion.get("data", {}) or {}
+    mgmt = data.get("management", {}) or {}
+    state = data.get("state", {}) or {}
+    founders = data.get("founders", []) or []
+    return {
+        "inn": data.get("inn", ""),
+        "ogrn": data.get("ogrn", ""),
+        "kpp": data.get("kpp", ""),
+        "name": (suggestion.get("value") or "").strip(),
+        "full_name": (data.get("name", {}) or {}).get("full_with_opf", ""),
+        "address": (data.get("address", {}) or {}).get("value", ""),
+        "head_name": (mgmt.get("name") or "").strip(),
+        "head_post": (mgmt.get("post") or "").strip(),
+        "status": state.get("status", ""),
+        "status_text": state.get("actuality_status", ""),
+        "okved": data.get("okved", ""),
+        "okved_name": data.get("okved_type", ""),
+        "founders_count": len(founders),
+        "founders": _extract_founders(founders),
+        "branches_count": len(data.get("branches", []) or []),
+    }
+
+
+def _extract_founders(founders: list) -> list:
+    """Первые 5 учредителей (имя/ИНН/доля)."""
+    out = []
+    for f in founders[:5]:
+        if not isinstance(f, dict):
+            continue
+        name = f.get("name") or f.get("fio") or ""
+        out.append({
+            "name": (name or "").strip(),
+            "inn": f.get("inn", ""),
+            "share": _share_text(f),
+        })
+    return out
+
+
+def _share_text(founder: dict) -> str:
+    share = founder.get("share") or {}
+    if not isinstance(share, dict):
+        return ""
+    pct = share.get("percent")
+    if pct is not None:
+        return f"{pct}%"
+    return ""
+
+
+@mcp.tool()
+def lookup_company_by_inn(inn: str) -> str:
+    """
+    Профиль компании по ИНН/ОГРН через DaData (быстрый API, ~1с).
+    Возвращает реквизиты: название, ОГРН, КПП, адрес, руководитель, статус,
+    ОКВЭД, учредители. Используй для запросов «что за компания по ИНН»,
+    «проверь контрагента», «найди реквизиты». Работает намного быстрее и
+    надёжнее веб-поиска/браузера по сайтам-реестрам.
+
+    Args:
+        inn: ИНН (10 цифр для юрлица) или ОГРН компании.
+    """
+    payload = {"query": str(inn).strip(), "branch_type": "MAIN", "count": 1}
+    resp = _dadata_request(DADATA_FIND_PARTY_URL, payload)
+    if "error" in resp:
+        return json.dumps(resp, ensure_ascii=False)
+    suggestions = resp.get("suggestions", [])
+    if not suggestions:
+        return json.dumps(
+            {"found": False, "message": f"Компания по ИНН {inn} не найдена"},
+            ensure_ascii=False,
+        )
+    return json.dumps(
+        {"found": True, "company": _extract_party(suggestions[0])},
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool()
+def find_affiliated_companies(inn: str) -> str:
+    """
+    Связанные (аффилированные) компании по ИНН через DaData.
+    Показывает юрлица с общими учредителями/руководителями — это позволяет
+    ответить на вопрос «это холдинг или нет?»: если affiliated пусто — компания
+    самостоятельная, не холдинг; если есть список — входит в группу.
+
+    Args:
+        inn: ИНН компании-ячейки (10 цифр).
+    """
+    payload = {"query": str(inn).strip(), "count": 20}
+    resp = _dadata_request(DADATA_FIND_AFFILIATED_URL, payload)
+    if "error" in resp:
+        return json.dumps(resp, ensure_ascii=False)
+    suggestions = resp.get("suggestions", [])
+    affiliated = [_extract_party(s) for s in suggestions]
+    return json.dumps({
+        "inn": str(inn).strip(),
+        "is_holding": len(affiliated) > 0,
+        "affiliated_count": len(affiliated),
+        "affiliated": affiliated,
+    }, ensure_ascii=False)
 
 
 # ===========================================================================
