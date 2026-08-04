@@ -156,6 +156,51 @@ async def send_to_hermes(
                 "actions": [],
                 "error": "connection",
             }
+        except httpx.HTTPStatusError as e:
+            # Разбор по статус-коду — даёт пользователю понятное сообщение и
+            # точный action-item для админа, а не сырой дамп httpx.
+            status = e.response.status_code
+            logger.error(
+                "Hermes HTTP %d (token_set=%s, url=%s) — %s",
+                status,
+                bool(settings.HERMES_API_TOKEN),
+                settings.HERMES_API_URL,
+                e.response.text[:300],
+            )
+            if status == 401:
+                return {
+                    "reply": (
+                        "Ошибка авторизации при обращении к агенту (401). "
+                        "Скорее всего, токен Hermes не задан или устарел в "
+                        "окружении CRM. Проверьте HERMES_API_TOKEN в .env и "
+                        "ПЕРЕСОЗДАЙТЕ контейнер (`docker compose up -d`)."
+                    ),
+                    "actions": [],
+                    "error": f"http_{status}",
+                }
+            if status == 404:
+                return {
+                    "reply": (
+                        "Агент недоступен по указанному адресу (404). "
+                        f"Проверьте HERMES_API_URL={settings.HERMES_API_URL}."
+                    ),
+                    "actions": [],
+                    "error": f"http_{status}",
+                }
+            if status >= 500:
+                return {
+                    "reply": (
+                        "Ошибка на стороне агента (сервер Hermes). "
+                        "Попробуйте повторить через минуту."
+                    ),
+                    "actions": [],
+                    "error": f"http_{status}",
+                }
+            return {
+                "reply": f"Ошибка при обращении к агенту: HTTP {status}.",
+                "actions": [],
+                "error": f"http_{status}",
+            }
         except Exception as e:
             return {
                 "reply": f"Произошла ошибка при обращении к агенту: {str(e)}",
