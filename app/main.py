@@ -11,6 +11,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 from app.database import init_db
 
+# Настройка логирования: uvicorn по умолчанию выставляет уровень только себе,
+# а логгеры приложения (app.*) наследуют root=WARNING → info/info-сообщения
+# стартап-чеков и диагностики Hermes не попадают в docker logs. Поднимаем
+# уровень для app.* до INFO явно, чтобы диагностика была видна без настройки.
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("app").setLevel(logging.INFO)
+
 logger = logging.getLogger("app.main")
 
 EXEMPT_PATHS = {"/login", "/docs", "/openapi.json", "/favicon.ico", "/invite"}
