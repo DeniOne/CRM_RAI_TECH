@@ -76,11 +76,13 @@ async def _task_counts(session, user):
     }
 
 
-async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=None):
+async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=None, priority=None):
     """Лиды с задачами, отфильтрованными по filter.
 
     manager_id (для admin/supervisor) сужает до задач конкретного менеджера.
     stage — фильтр по стадии воронки, применяется только в no_tasks.
+    priority (int 1/2/3) — в no_tasks фильтрует Lead.priority, в прочих
+        ветках Task.priority. Сортировка всегда high→low первым ключом.
     """
     task_filter, lead_filter = _user_scope_filters(user, manager_id)
     day_start, day_end = user_day_bounds(user)
@@ -90,11 +92,14 @@ async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=
         conds = [lead_filter, Lead.stage != "lost", ~has_tasks]
         if stage:
             conds.append(Lead.stage == stage)
+        if priority:
+            conds.append(Lead.priority == priority)
         result = await session.execute(
             select(Lead)
             .where(*conds)
             .options(selectinload(Lead.assigned_manager))
-            .order_by(Lead.name)
+            # high (1) → low (3), NULL-приоритет уходит в конец (SQLite ASC).
+            .order_by(Lead.priority.is_(None), Lead.priority, Lead.name)
         )
         return result.scalars().all()
 
@@ -107,13 +112,17 @@ async def _query_leads_with_tasks(session, user, filter, manager_id=None, stage=
         )
     elif filter == "overdue":
         task_base = task_base & Task.due_date.is_not(None) & (Task.due_date < day_start)
+    if priority:
+        task_base = task_base & (Task.priority == priority)
 
-    # Задачи с eager-load лидов + скоуп по роли/выбранному менеджеру
+    # Задачи с eager-load лидов + скоуп по роли/выбранному менеджеру.
+    # Сортировка: high (1) → low (3) первым ключом, внутри приоритета —
+    # сначала задачи со сроком (по возрастанию даты), потом без срока.
     tasks_q = (
         select(Task)
         .where(task_base, task_filter, Task.lead_id.is_not(None))
         .options(selectinload(Task.lead).selectinload(Lead.assigned_manager))
-        .order_by(Task.due_date.is_(None), Task.due_date)
+        .order_by(Task.priority, Task.due_date.is_(None), Task.due_date)
     )
 
     result = await session.execute(tasks_q)
@@ -348,6 +357,7 @@ async def tasks_leads_page(
     filter: str = "total",
     manager_id: int | None = None,
     stage: str = None,
+    priority: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -363,10 +373,13 @@ async def tasks_leads_page(
     if user.role.value == "manager":
         manager_id = None
 
-    leads = await _query_leads_with_tasks(session, user, filter, manager_id, stage)
+    # Нормализация priority: из select приходит строка "" или "1"/"2"/"3".
+    # Пустую/нечисловую → None (фильтр не применяется).
+    priority = int(priority) if priority and priority.isdigit() else None
 
-    import logging
-    logging.warning(f"[tasks_leads] filter={filter} stage={stage!r} manager_id={manager_id} leads={len(leads)} hx={request.headers.get('hx-request')}")
+    leads = await _query_leads_with_tasks(
+        session, user, filter, manager_id, stage, priority
+    )
 
     titles = {
         "total": "Все задачи",
@@ -391,6 +404,7 @@ async def tasks_leads_page(
         "stage_labels": STAGE_LABELS,
         "manager_id": manager_id,
         "stage": stage,
+        "priority": priority,
         "users": users,
     }
 

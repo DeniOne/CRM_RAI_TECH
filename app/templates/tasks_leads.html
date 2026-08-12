@@ -16,6 +16,13 @@
         {% endif %}
         {% endfor %}
     </select>
+    <select name="priority"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+        <option value="">Все приоритеты</option>
+        <option value="1" {% if priority == 1 %}selected{% endif %}>Высокий</option>
+        <option value="2" {% if priority == 2 %}selected{% endif %}>Средний</option>
+        <option value="3" {% if priority == 3 %}selected{% endif %}>Низкий</option>
+    </select>
     {% if current_user.role.value in ('supervisor', 'admin') %}
     <select name="manager_id"
         class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
