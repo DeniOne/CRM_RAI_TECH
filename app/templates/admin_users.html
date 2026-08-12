@@ -107,7 +107,7 @@ function toggleActive(userId) {
     fetch('/admin/users/' + userId + '/toggle-active', { method: 'POST' })
         .then(function(r) {
             if (!r.ok) {
-                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
+                return r.json().then(function(d) { throw new Error(extractErr(d, 'Ошибка')); });
             }
             return r.text();
         })
@@ -128,7 +128,7 @@ function deleteUser(userId, userName) {
     fetch('/admin/users/' + userId + '/delete', { method: 'POST' })
         .then(function(r) {
             if (!r.ok) {
-                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка удаления'); });
+                return r.json().then(function(d) { throw new Error(extractErr(d, 'Ошибка удаления')); });
             }
             return r.json();
         })
@@ -146,7 +146,7 @@ function resetPassword(userId) {
     fetch('/admin/users/' + userId + '/reset-password', { method: 'POST' })
         .then(function(r) {
             if (!r.ok) {
-                return r.json().then(function(d) { throw new Error(d.detail || 'Ошибка'); });
+                return r.json().then(function(d) { throw new Error(extractErr(d, 'Ошибка')); });
             }
             return r.text();
         })

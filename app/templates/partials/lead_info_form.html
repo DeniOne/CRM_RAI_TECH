@@ -300,7 +300,7 @@ function applyDadata(item) {
                 alert('Реквизиты обновлены. Перезагружаем страницу...');
                 window.location.reload();
             } else {
-                alert('Ошибка: ' + (data.detail || 'не удалось обновить'));
+                alert('Ошибка: ' + extractErr(data, 'не удалось обновить'));
             }
         })
         .catch(function(err) {

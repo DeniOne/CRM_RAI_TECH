@@ -30,7 +30,12 @@ function initSortable() {
                     if (!resp.ok) {
                         evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
                         return resp.json().then(function(data) {
-                            var errors = data.detail && data.detail.errors ? data.detail.errors : ['Ошибка смены стадии'];
+                            var errors;
+                            if (data && data.detail && data.detail.errors) {
+                                errors = data.detail.errors;
+                            } else {
+                                errors = [extractErr(data, 'Ошибка смены стадии')];
+                            }
                             alert('Невозможно сменить стадию:\n' + errors.join('\n'));
                         });
                     }

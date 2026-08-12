@@ -257,7 +257,7 @@ function saveHeaderEdit() {
                     closeHeaderEditor();
                     showToast('Стадия обновлена', 'success');
                 } else {
-                    var errors = res.data.detail && res.data.detail.errors ? res.data.detail.errors : [res.data.detail || 'Ошибка'];
+                    var errors = res.data.detail && res.data.detail.errors ? res.data.detail.errors : [extractErr(res.data, 'Ошибка')];
                     showToast('Невозможно сменить стадию: ' + errors.join('; '), 'error');
                 }
             })
@@ -279,7 +279,7 @@ function saveHeaderEdit() {
                     closeHeaderEditor();
                     showToast(data.manager_name ? ('Менеджер: ' + data.manager_name) : 'Менеджер снят', 'success');
                 } else {
-                    showToast('Ошибка: ' + (data.detail || 'не удалось сохранить'), 'error');
+                    showToast('Ошибка: ' + extractErr(data, 'не удалось сохранить'), 'error');
                 }
             })
             .catch(function(err) {
@@ -311,7 +311,7 @@ function saveHeaderEdit() {
                     closeHeaderEditor();
                     showToast('Регион обновлён', 'success');
                 } else {
-                    showToast('Ошибка: ' + (data.detail || 'не удалось сохранить'), 'error');
+                    showToast('Ошибка: ' + extractErr(data, 'не удалось сохранить'), 'error');
                 }
             })
             .catch(function(err) {
@@ -385,7 +385,7 @@ function saveLeadName() {
 
                 cancelEditName();
             } else {
-                alert('Ошибка: ' + (data.detail || 'не удалось сохранить'));
+                alert('Ошибка: ' + extractErr(data, 'не удалось сохранить'));
             }
         })
         .catch(function(err) {
@@ -427,7 +427,7 @@ function deleteLead() {
             if (data.ok) {
                 window.location.href = '/kanban';
             } else {
-                alert('Ошибка: ' + (data.detail || 'не удалось удалить лида'));
+                alert('Ошибка: ' + extractErr(data, 'не удалось удалить лида'));
             }
         })
         .catch(function(err) { alert('Ошибка запроса: ' + err.message); });

@@ -93,6 +93,33 @@
     <div id="task-ticker" class="ticker-bar"></div>
     <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none"></div>
     <script>
+    // Нормализация ошибок из JSON-ответа FastAPI в читаемую строку.
+    // FastAPI на 422 возвращает {"detail": [{type, loc, msg, ...}]} (массив
+    // объектов) — без нормализации конкатенация 'Ошибка: ' + data.detail даёт
+    // 'Ошибка: [object Object]'. Эта функция вытягивает msg из каждого элемента
+    // массива или берёт строку как есть.
+    function extractErr(data, fallback) {
+        fallback = fallback || 'Ошибка';
+        if (!data) return fallback;
+        var d = data.detail;
+        if (typeof d === 'string') return d;
+        if (Array.isArray(d)) {
+            return d.map(function(e) {
+                if (typeof e === 'string') return e;
+                if (e && e.msg) {
+                    var loc = e.loc && e.loc.length ? (e.loc[e.loc.length - 1] + ': ') : '';
+                    return loc + e.msg;
+                }
+                if (e && e.message) return e.message;
+                return JSON.stringify(e);
+            }).join('; ');
+        }
+        if (d && typeof d === 'object') {
+            if (d.errors && Array.isArray(d.errors)) return extractErr({detail: d.errors}, fallback);
+            return d.msg || d.message || JSON.stringify(d);
+        }
+        return fallback;
+    }
     function showToast(message, type) {
         type = type || 'success';
         var container = document.getElementById('toast-container');
