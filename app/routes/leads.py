@@ -221,7 +221,7 @@ async def lead_create_form(request: Request, session: AsyncSession = Depends(get
 async def lead_create(
     request: Request,
     name: str = Form(...),
-    region_id: int = Form(None),
+    region_id: str = Form(""),
     new_region: str = Form(""),
     inn: str = Form(""),
     head_name: str = Form(""),
@@ -248,12 +248,16 @@ async def lead_create(
         else:
             raise HTTPException(status_code=422, detail="Выберите менеджера")
 
+    # Регион: new_region имеет приоритет (форма select 'new' + инпут названия).
+    # region_id приходит строкой т.к. select может дать значение "new" (немчисловое) —
+    # фильтруем такие/пустые и парсим int явно, чтобы не уронить FastAPI 422.
     region = None
-    if region_id:
-        result = await session.execute(select(Region).where(Region.id == region_id))
-        region = result.scalar_one_or_none()
-    elif new_region.strip():
+    if new_region.strip():
         region = await _get_or_create_region(session, new_region.strip())
+    elif region_id and region_id.lstrip("-").isdigit():
+        rid = int(region_id)
+        result = await session.execute(select(Region).where(Region.id == rid))
+        region = result.scalar_one_or_none()
 
     lead = Lead(
         name=clean_name,
