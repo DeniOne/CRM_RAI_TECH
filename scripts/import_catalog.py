@@ -128,6 +128,10 @@ async def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="обработать только N строк (тест)")
     parser.add_argument("--no-images", action="store_true", help="не качать картинки")
     parser.add_argument("--images-only", action="store_true", help="только докачать картинки")
+    parser.add_argument("--with-prices", action="store_true",
+                        help="импортировать numeric-цены из xlsx в базовый прайс. По умолчанию ВЫКЛ "
+                             "(решение владельца 2026-09-04: цены поставщика — входящие/закупочные, "
+                             "продажные ставятся вручную через /prices)")
     parser.add_argument("--delay", type=float, default=0.6, help="пауза между запросами картинок, сек")
     args = parser.parse_args()
 
@@ -174,10 +178,12 @@ async def main() -> None:
                 if row["price_raw"] is not None and product:
                     priced_rows.append((product, row["price_raw"]))
 
-            # Прайс-лист создаём лениво: только если в файле есть хоть одна цена
+            # Прайс-лист создаём лениво: только с флагом --with-prices и если
+            # в файле есть хоть одна numeric-цена (см. help: цены поставщика —
+            # входящие, в продажный прайс автоматом не попадают)
             price_values = [
                 (p, v) for p, raw in priced_rows if (v := cs.parse_price_amount(raw)) is not None
-            ]
+            ] if args.with_prices else []
             if price_values:
                 pricelist = await cs.get_or_create_default_pricelist(session)
                 for product, value in price_values:
