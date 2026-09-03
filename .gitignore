@@ -24,6 +24,7 @@ storage/library/
 storage/documents/
 storage/catalog/
 storage/company/
+storage/contract_template.docx
 
 # OS
 .DS_Store
