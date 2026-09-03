@@ -18,7 +18,7 @@ from sqlalchemy.orm import joinedload
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_session
-from app.models import Product, ProductCategory
+from app.models import PriceList, Product, ProductCategory, ProductPrice
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -133,6 +133,21 @@ async def _catalog_context(
         .all()
     )
 
+    pricelist = (
+        await session.execute(
+            select(PriceList).where(PriceList.is_default == True)  # noqa: E712
+        )
+    ).scalar_one_or_none()
+    prices: dict = {}
+    if pricelist and products:
+        rows = await session.execute(
+            select(ProductPrice.product_id, ProductPrice.price).where(
+                ProductPrice.price_list_id == pricelist.id,
+                ProductPrice.product_id.in_([p.id for p in products]),
+            )
+        )
+        prices = dict(rows.all())
+
     base_qs = urlencode(
         {k: v for k, v in {"q": q or "", "category_id": category_id or ""}.items() if v}
     )
@@ -142,6 +157,8 @@ async def _catalog_context(
         "category_id": category_id,
         "roots": cat_ctx["roots"],
         "products": products,
+        "prices": prices,
+        "currency": pricelist.currency if pricelist else "RUB",
         "total": total,
         "page": page,
         "pages": pages,

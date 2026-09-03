@@ -69,6 +69,7 @@
                 {% endif %}
                 {% if current_user.role.value in ('supervisor', 'admin') %}
                 <div class="pt-3 pb-1 px-3 text-xs font-medium text-muted uppercase tracking-wide">Управление</div>
+                <a href="/prices" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Прайс-лист</a>
                 <a href="/reports" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Аналитика</a>
                 <a href="/kanban?manager=all" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Все лиды</a>
                 {% endif %}

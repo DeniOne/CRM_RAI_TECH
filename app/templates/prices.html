@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Прайс-лист — CRM RAI{% endblock %}
+{% block content %}
+{% macro cat_link(node, depth) %}
+{% set c = node.obj %}
+<a href="/prices?category_id={{ c.id }}"
+   class="flex items-center justify-between pr-3 py-1.5 rounded-lg text-sm {% if c.id == category_id %}bg-ink text-white{% else %}text-ink hover:bg-slate-100{% endif %}"
+   style="padding-left: {{ 12 + depth * 14 }}px" title="{{ c.name }}">
+    <span class="truncate">{{ c.name }}</span>
+    <span class="text-xs shrink-0 {% if c.id == category_id %}text-white/70{% else %}text-muted{% endif %}">{{ c.total }}</span>
+</a>
+{% for ch in node.children %}{{ cat_link(ch, depth + 1) }}{% endfor %}
+{% endmacro %}
+
+<h1 class="text-2xl font-medium mb-1 text-ink">Прайс-лист{% if pricelist %}: {{ pricelist.name }} <span class="text-sm text-muted">({{ pricelist.currency }})</span>{% endif %}</h1>
+<p class="text-sm text-muted mb-4">Товар без цены показывается покупателю как «цена по запросу». Пустое поле — цену не трогаем.</p>
+
+{% if saved is not none %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
+    Сохранено цен: <span class="font-mono">{{ saved or 0 }}</span>{% if skipped %} · пропущено (пустых/нераспознанных/не найдено): <span class="font-mono">{{ skipped }}</span>{% endif %}
+</div>
+{% endif %}
+
+<div class="flex gap-6">
+    <aside class="w-64 shrink-0 overflow-y-auto" style="max-height: calc(100vh - 180px)">
+        <nav class="space-y-0.5 pb-4">
+            <a href="/prices" class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {% if not category_id %}bg-ink text-white{% else %}text-ink hover:bg-slate-100{% endif %}">
+                <span>Все товары</span>
+                <span class="text-xs shrink-0 {% if not category_id %}text-white/70{% else %}text-muted{% endif %}">{{ roots | sum(attribute='obj.total') }}</span>
+            </a>
+            {% for node in roots %}{{ cat_link(node, 0) }}{% endfor %}
+        </nav>
+    </aside>
+    <section class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 mb-3 flex-wrap">
+            <form method="get" action="/prices" class="flex items-center gap-2">
+                <input type="hidden" name="category_id" value="{{ category_id or '' }}">
+                <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="px-3 py-2 rounded-lg border border-black/10 bg-white text-sm w-64 focus:outline-none focus:ring-2 focus:ring-ink/10">
+                <button class="px-3 py-2 rounded-lg text-sm bg-ink text-white">Найти</button>
+            </form>
+            <form method="post" action="/prices/import" enctype="multipart/form-data" class="flex items-center gap-2 ml-auto"
+                  onsubmit="return confirm('Импортировать цены из xlsx? Товары сопоставляются по ссылке/артикулу.');">
+                <input type="file" name="file" accept=".xlsx" required
+                       class="text-sm file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-100 file:text-ink file:text-sm">
+                <button class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Импорт цен</button>
+            </form>
+            <a href="/prices/export" class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Экспорт xlsx</a>
+        </div>
+
+        <form method="post" action="/prices/save">
+            <input type="hidden" name="category_id" value="{{ category_id or '' }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="page" value="{{ page }}">
+            <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead class="text-muted border-b border-black/10">
+                        <tr>
+                            <th class="text-left px-4 py-2 font-medium">Товар</th>
+                            <th class="text-left px-4 py-2 font-medium">Артикул</th>
+                            <th class="text-right px-4 py-2 font-medium w-44">Цена, {{ pricelist.currency if pricelist else 'RUB' }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in products %}
+                        <tr class="border-b border-black/10 hover:bg-slate-50">
+                            <td class="px-4 py-2">
+                                <a href="{{ p.source_url }}" target="_blank" rel="noopener" class="text-ink hover:text-blue-600" title="{{ p.source_url or '' }}">{{ p.name }}</a>
+                            </td>
+                            <td class="px-4 py-2 font-mono text-muted">{{ p.sku or '—' }}</td>
+                            <td class="px-4 py-2 text-right">
+                                <input type="text" inputmode="decimal" name="price_{{ p.id }}" value="{{ prices.get(p.id, '') }}"
+                                       placeholder="по запросу"
+                                       class="w-36 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="px-4 py-8 text-center text-muted">Товары не найдены</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex items-center justify-between mt-3">
+                <p class="text-xs text-muted">Найдено: <span class="font-mono">{{ total }}</span> · страница {{ page }} из {{ pages }}</p>
+                {% if products %}
+                <button class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить цены на странице</button>
+                {% endif %}
+            </div>
+        </form>
+
+        {% if pages > 1 %}
+        <div class="flex items-center justify-center gap-3 mt-4">
+            {% if page > 1 %}<a href="/prices?{{ base_qs }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">← Назад</a>{% endif %}
+            {% if page < pages %}<a href="/prices?{{ base_qs }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вперёд →</a>{% endif %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

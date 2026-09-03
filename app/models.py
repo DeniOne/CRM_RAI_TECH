@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, date
 from typing import Optional, List
 
-from sqlalchemy import String, Text, Boolean, Float, Integer, ForeignKey, func, Enum as SAEnum
+from sqlalchemy import String, Text, Boolean, Float, Integer, Numeric, ForeignKey, UniqueConstraint, func, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -359,3 +359,39 @@ class Product(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     category: Mapped[Optional["ProductCategory"]] = relationship(back_populates="products")
+
+
+class PriceList(Base):
+    """Прайс-лист. В v2.0 один базовый (is_default); модель сразу под будущие
+    сегментные/региональные списки (решение владельца: базовый прайс + скидка в КП)."""
+    __tablename__ = "price_lists"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    currency: Mapped[str] = mapped_column(String(3), default="RUB")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    prices: Mapped[List["ProductPrice"]] = relationship(back_populates="price_list")
+
+
+class ProductPrice(Base):
+    """Цена товара в прайс-листе. Цена не задана = «цена по запросу».
+    min_qty заложен под будущие ступенчатые скидки, в UI v2.0 не используется."""
+    __tablename__ = "product_prices"
+    __table_args__ = (
+        # один товар — одна цена в прайс-листе; upsert по этой паре
+        UniqueConstraint("product_id", "price_list_id", name="uq_product_pricelist"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
+    price_list_id: Mapped[int] = mapped_column(ForeignKey("price_lists.id", ondelete="CASCADE"), index=True)
+    price: Mapped[float] = mapped_column(Numeric(12, 2))
+    min_qty: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    product: Mapped["Product"] = relationship()
+    price_list: Mapped["PriceList"] = relationship(back_populates="prices")

@@ -1,12 +1,13 @@
-"""Импорт каталога производителя из xlsx в БД CRM (фаза 17).
+"""Импорт каталога производителя из xlsx в БД CRM (фазы 17–18).
 
-Формат файла (лист любой, колонки по индексам):
+Формат файла (лист любой, колонки по индексам — см. catalog_service):
   0: № | 1: Категория | 2: Подкатегория | 3: Полный путь | 4: Название |
-  5: Артикул | 6: Цена (игнорируется, цены — фаза 18) | 7: Ссылка | 8: Картинка
+  5: Артикул | 6: Цена | 7: Ссылка | 8: Картинка
 
 Идемпотентность: upsert по source_url (в каталоге АгроВиты уникален — проверено).
-Картинки качаются в storage/catalog/images/ с троттлингом, ретраями и
-возобновляемостью (существующие файлы не перекачиваются).
+Numeric-цены из колонки 6 попадают в дефолтный прайс-лист (фаза 18); заглушки
+типа «уточняйте» пропускаются. Картинки качаются в storage/catalog/images/ с
+троттлингом, ретраями и возобновляемостью.
 
 Примеры:
   python scripts/import_catalog.py --xlsx path.xlsx --limit 25
@@ -22,21 +23,18 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import httpx
-import openpyxl
 from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings  # noqa: E402
 from app.database import async_session_maker, init_db  # noqa: E402
-from app.models import Product, ProductCategory  # noqa: E402
+from app.models import Product  # noqa: E402
+from app.services import catalog_service as cs  # noqa: E402
 
 DEFAULT_XLSX = r"I:\Мой диск\РАИ Технологии\РАИ Технологии\АгроВитаСервис\agrovita_catalog.xlsx"
-
-COL_CATEGORY, COL_NAME, COL_SKU, COL_URL, COL_IMAGE = 1, 4, 5, 7, 8
 
 # Каталог производителя — качаем вежливо: браузерный UA (часть сайтов режет
 # нестандартные UA на уровне WAF), пауза между запросами, ретраи с backoff.
@@ -55,28 +53,8 @@ IMAGE_MAGIC = (
 )
 
 
-def read_catalog_rows(path: str, limit: int = 0) -> list[dict]:
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb[wb.sheetnames[0]]
-    rows = []
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        if not r or r[COL_NAME] is None or r[COL_URL] is None:
-            continue
-        rows.append({
-            "category": str(r[COL_CATEGORY]).strip() if r[COL_CATEGORY] else None,
-            "name": str(r[COL_NAME]).strip(),
-            "sku": str(r[COL_SKU]).strip() if r[COL_SKU] else None,
-            "url": str(r[COL_URL]).strip(),
-            "image": str(r[COL_IMAGE]).strip() if r[COL_IMAGE] else None,
-        })
-        if limit and len(rows) >= limit:
-            break
-    wb.close()
-    return rows
-
-
 def image_ext(url: str) -> str:
-    suffix = urlsplit(url).path.rsplit(".", 1)[-1].lower()
+    suffix = url.rsplit(".", 1)[-1].lower() if "." in url else ""
     return suffix if suffix in IMG_EXTS else "jpg"
 
 
@@ -87,44 +65,6 @@ def sniff_ext(data: bytes) -> str | None:
     if len(data) > 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
     return None
-
-
-async def upsert_category(session, name: str, sort_order: int) -> ProductCategory:
-    cat = (
-        await session.execute(
-            select(ProductCategory).where(
-                ProductCategory.name == name, ProductCategory.parent_id.is_(None)
-            )
-        )
-    ).scalar_one_or_none()
-    if cat is None:
-        cat = ProductCategory(name=name, parent_id=None, sort_order=sort_order)
-        session.add(cat)
-        await session.flush()
-    return cat
-
-
-async def upsert_product(session, cat: ProductCategory | None, row: dict, brand: str) -> str:
-    """Возвращает 'created' | 'updated'."""
-    product = None
-    if row["url"]:
-        product = (
-            await session.execute(select(Product).where(Product.source_url == row["url"]))
-        ).scalar_one_or_none()
-    if product is None:
-        product = Product(
-            name=row["name"], source_url=row["url"], brand=brand,
-            category_id=cat.id if cat else None,
-        )
-        session.add(product)
-        status = "created"
-    else:
-        status = "updated"
-        product.name = row["name"]
-        if cat:
-            product.category_id = cat.id
-    product.sku = row["sku"] or None
-    return status
 
 
 async def download_images(session, products: list[Product], delay: float, report: dict) -> None:
@@ -196,7 +136,7 @@ async def main() -> None:
 
     report = {
         "xlsx": args.xlsx, "brand": args.brand, "started": datetime.now().isoformat(),
-        "rows": 0, "created": 0, "updated": 0, "categories": 0,
+        "rows": 0, "created": 0, "updated": 0, "categories": 0, "prices": 0,
         "images_ok": 0, "images_failed": 0, "images_skipped_existing": 0,
         "failed_images": [],
     }
@@ -205,7 +145,7 @@ async def main() -> None:
         if args.images_only:
             # Только докачка: соответствие товар↔URL картинки берём из xlsx
             url_to_image = {
-                r["url"]: r["image"] for r in read_catalog_rows(args.xlsx) if r["image"]
+                r["url"]: r["image"] for r in cs.read_catalog_rows(args.xlsx) if r["image"]
             }
             products = (
                 (await session.execute(select(Product).where(Product.source_url.is_not(None))))
@@ -215,33 +155,55 @@ async def main() -> None:
             for p in products:
                 p.source_url_image = url_to_image.get(p.source_url)
         else:
-            rows = read_catalog_rows(args.xlsx, args.limit)
+            rows = cs.read_catalog_rows(args.xlsx, args.limit)
             cats_order: dict[str, int] = {}
-            cat_cache: dict[str, ProductCategory] = {}
+            cat_cache: dict[str, object] = {}
+            priced_rows = []
             for row in rows:
                 if row["category"] and row["category"] not in cat_cache:
                     name = row["category"]
                     if name not in cats_order:
                         cats_order[name] = len(cats_order)
-                    cat_cache[name] = await upsert_category(session, name, cats_order[name])
-                status = await upsert_product(session, cat_cache.get(row["category"]), row, args.brand)
+                    cat_cache[name] = await cs.upsert_category(session, name, cats_order[name])
+                status = await cs.upsert_product(session, cat_cache.get(row["category"]), row, args.brand)
                 report["rows"] += 1
                 report[status] += 1
+                product = await cs.find_product(session, row["url"], row["sku"])
+                if product:
+                    product.source_url_image = row["image"]
+                if row["price_raw"] is not None and product:
+                    priced_rows.append((product, row["price_raw"]))
+
+            # Прайс-лист создаём лениво: только если в файле есть хоть одна цена
+            price_values = [
+                (p, v) for p, raw in priced_rows if (v := cs.parse_price_amount(raw)) is not None
+            ]
+            if price_values:
+                pricelist = await cs.get_or_create_default_pricelist(session)
+                for product, value in price_values:
+                    await cs.upsert_price(session, product.id, pricelist.id, value)
+                report["prices"] = len(price_values)
+
             report["categories"] = len(cat_cache)
             await session.commit()
             print(f"Товаров обработано: {report['rows']} (новых {report['created']}, обновлено {report['updated']})")
-            print(f"Категорий: {report['categories']}")
+            print(f"Категорий: {report['categories']}, цен импортировано: {report['prices']}")
 
         if not args.no_images:
-            if not args.images_only:
-                url_to_image = {r["url"]: r["image"] for r in rows if r["image"]}
-                products = (
-                    (await session.execute(select(Product).where(Product.source_url.is_not(None))))
-                    .scalars()
-                    .all()
-                )
-                for p in products:
-                    p.source_url_image = url_to_image.get(p.source_url)
+            # URL картинок — из того же набора строк, что импортирован (--limit
+            # не должен затягивать картинки чужих строк); images-only — весь файл
+            url_to_image = {
+                r["url"]: r["image"]
+                for r in (cs.read_catalog_rows(args.xlsx) if args.images_only else rows)
+                if r["image"]
+            }
+            products = (
+                (await session.execute(select(Product).where(Product.source_url.is_not(None))))
+                .scalars()
+                .all()
+            )
+            for p in products:
+                p.source_url_image = url_to_image.get(p.source_url)
             await download_images(session, products, args.delay, report)
 
     report["elapsed_sec"] = round(time.monotonic() - started, 1)

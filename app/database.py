@@ -33,7 +33,7 @@ async def init_db():
     from app.models import (  # noqa: F401
         User, Region, Lead, StageHistory, Contact, ContactLog, Comment, Task, Deal,
         Document, DocumentTemplate, Invite, LibraryFolder, LibraryFile,
-        ProductCategory, Product,
+        ProductCategory, Product, PriceList, ProductPrice,
     )
 
     # WAL mode для concurrent reads/writes — уменьшает "database is locked"

@@ -36,7 +36,12 @@
                 {% if p.sku %}
                 <span class="text-xs font-mono text-muted truncate" title="Артикул">{{ p.sku }}</span>
                 {% else %}<span></span>{% endif %}
+                {% set price = prices.get(p.id) %}
+                {% if price %}
+                <span class="text-sm font-mono text-ink whitespace-nowrap">{{ "{:,.2f}".format(price) | replace(",", " ") | replace(".", ",") }} {{ '₽' if currency == 'RUB' else currency }}</span>
+                {% else %}
                 <span class="text-xs text-muted shrink-0">цена по запросу</span>
+                {% endif %}
             </div>
         </article>
         {% endfor %}
