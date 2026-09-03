@@ -94,8 +94,14 @@ def _build_filters(q: Optional[str], subtree_ids: Optional[set[int]]):
     if subtree_ids is not None:
         conds.append(Product.category_id.in_(subtree_ids))
     if q:
-        like = f"%{q}%"
-        conds.append(or_(Product.name.ilike(like), Product.sku.ilike(like)))
+        # u_lower (см. database.py) — SQLite LIKE не фолдит кириллицу
+        like = f"%{q.lower()}%"
+        conds.append(
+            or_(
+                func.u_lower(Product.name).like(like),
+                func.u_lower(Product.sku).like(like),
+            )
+        )
     return conds
 
 

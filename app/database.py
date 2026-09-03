@@ -1,4 +1,4 @@
-from sqlalchemy import text as sqlalchemy_text
+from sqlalchemy import event, text as sqlalchemy_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -11,6 +11,13 @@ async_engine = create_async_engine(
     pool_pre_ping=True,
 )
 async_session_maker = async_sessionmaker(async_engine, expire_on_commit=False)
+
+
+@event.listens_for(async_engine.sync_engine, "connect")
+def _register_sqlite_functions(dbapi_conn, _record):
+    # SQLite LIKE сворачивает регистр только для ASCII: '%поилка%' не матчит
+    # «Поилки…» с заглавной. u_lower — Python-фолдинг, работает для кириллицы.
+    dbapi_conn.create_function("u_lower", 1, lambda s: s.lower() if s is not None else None)
 
 
 class Base(DeclarativeBase):
