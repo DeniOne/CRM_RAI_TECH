@@ -13,7 +13,7 @@
 {% endmacro %}
 
 <h1 class="text-2xl font-medium mb-1 text-ink">Прайс-лист{% if pricelist %}: {{ pricelist.name }} <span class="text-sm text-muted">({{ pricelist.currency }})</span>{% endif %}</h1>
-<p class="text-sm text-muted mb-4">Товар без цены показывается покупателю как «цена по запросу». Пустое поле — цену не трогаем.</p>
+<p class="text-sm text-muted mb-4">Раскладка цены: <b>входящая без НДС</b> (цена поставщика) → <b>отпускная без НДС</b> → <b>НДС</b> → отпускная с НДС (считается сама, её видят КП и счёт). Пустые поля не трогают сохранённое.</p>
 
 {% if saved is not none %}
 <div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -51,34 +51,49 @@
             <input type="hidden" name="category_id" value="{{ category_id or '' }}">
             <input type="hidden" name="q" value="{{ q }}">
             <input type="hidden" name="page" value="{{ page }}">
-            <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
-                <table class="w-full text-sm">
-                    <thead class="text-muted border-b border-black/10">
-                        <tr>
-                            <th class="text-left px-4 py-2 font-medium">Товар</th>
-                            <th class="text-left px-4 py-2 font-medium">Артикул</th>
-                            <th class="text-right px-4 py-2 font-medium w-44">Цена, {{ pricelist.currency if pricelist else 'RUB' }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in products %}
-                        <tr class="border-b border-black/10 hover:bg-slate-50">
-                            <td class="px-4 py-2">
-                                <a href="{{ p.source_url }}" target="_blank" rel="noopener" class="text-ink hover:text-blue-600" title="{{ p.source_url or '' }}">{{ p.name }}</a>
-                            </td>
-                            <td class="px-4 py-2 font-mono text-muted">{{ p.sku or '—' }}</td>
-                            <td class="px-4 py-2 text-right">
-                                <input type="text" inputmode="decimal" name="price_{{ p.id }}" value="{{ prices.get(p.id, '') }}"
-                                       placeholder="по запросу"
-                                       class="w-36 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="3" class="px-4 py-8 text-center text-muted">Товары не найдены</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="text-muted border-b border-black/10">
+                    <tr>
+                        <th class="text-left px-4 py-2 font-medium">Товар</th>
+                        <th class="text-left px-4 py-2 font-medium">Артикул</th>
+                        <th class="text-right px-4 py-2 font-medium w-36">Входящая б/НДС</th>
+                        <th class="text-right px-4 py-2 font-medium w-36">Отпускная б/НДС</th>
+                        <th class="text-right px-4 py-2 font-medium w-20">НДС %</th>
+                        <th class="text-right px-4 py-2 font-medium w-36">Отпускная с НДС</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    {% set pp = prices.get(p.id) %}
+                    <tr class="border-b border-black/10 hover:bg-slate-50">
+                        <td class="px-4 py-2">
+                            <a href="{{ p.source_url }}" target="_blank" rel="noopener" class="text-ink hover:text-blue-600" title="{{ p.source_url or '' }}">{{ p.name }}</a>
+                        </td>
+                        <td class="px-4 py-2 font-mono text-muted">{{ p.sku or '—' }}</td>
+                        <td class="px-4 py-2 text-right">
+                            <input type="text" inputmode="decimal" name="price_in_{{ p.id }}" value="{{ pp.price_in if pp and pp.price_in is not none else '' }}"
+                                   placeholder="—"
+                                   class="w-32 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                            <input type="text" inputmode="decimal" name="price_out_{{ p.id }}" value="{{ pp.price_out if pp and pp.price_out is not none else '' }}"
+                                   placeholder="—" data-out="{{ p.id }}"
+                                   class="w-32 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                            <input type="text" inputmode="decimal" name="vat_{{ p.id }}" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '20' }}"
+                                   data-vat="{{ p.id }}"
+                                   class="w-16 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono text-sm text-ink" data-withvat="{{ p.id }}">{{ '{:,.2f}'.format(pp.price) | replace(',', ' ') | replace('.', ',') if pp and pp.price else '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-muted">Товары не найдены</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
             <div class="flex items-center justify-between mt-3">
                 <p class="text-xs text-muted">Найдено: <span class="font-mono">{{ total }}</span> · страница {{ page }} из {{ pages }}</p>
                 {% if products %}
@@ -95,4 +110,25 @@
         {% endif %}
     </section>
 </div>
+<script>
+// Живой пересчёт «отпускной с НДС» = отпускная б/НДС × (1 + НДС/100)
+(function () {
+    function recalc(pid) {
+        var out = parseFloat((document.querySelector('[data-out="' + pid + '"]') || {}).value || '');
+        var vat = parseFloat((document.querySelector('[data-vat="' + pid + '"]') || {}).value || '20');
+        var cell = document.querySelector('[data-withvat="' + pid + '"]');
+        if (!cell) return;
+        if (isNaN(out)) { cell.textContent = '—'; return; }
+        if (isNaN(vat)) vat = 20;
+        var v = out * (1 + vat / 100);
+        cell.textContent = v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    document.querySelectorAll('[data-out]').forEach(function (inp) {
+        inp.addEventListener('input', function () { recalc(inp.dataset.out); });
+    });
+    document.querySelectorAll('[data-vat]').forEach(function (inp) {
+        inp.addEventListener('input', function () { recalc(inp.dataset.vat); });
+    });
+})();
+</script>
 {% endblock %}

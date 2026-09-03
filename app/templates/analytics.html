@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Аналитика продаж — CRM RAI{% endblock %}
+{% block content %}
+{% macro abc_table(title, rows, empty_note) %}
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden mb-6">
+    <div class="px-4 py-3 border-b border-black/10 bg-slate-50 flex items-center justify-between">
+        <h3 class="text-sm font-medium text-ink">{{ title }}</h3>
+        <span class="text-xs text-muted">A ≤ 80% · B ≤ 95% · C — остальное</span>
+    </div>
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left px-4 py-2 font-medium">Товар</th>
+                <th class="text-right px-2 py-2 font-medium w-24">Кол-во</th>
+                <th class="text-right px-2 py-2 font-medium w-32">Выручка, ₽</th>
+                <th class="text-right px-2 py-2 font-medium w-32">Прибыль, ₽</th>
+                <th class="text-right px-2 py-2 font-medium w-20">Доля %</th>
+                <th class="text-right px-2 py-2 font-medium w-24">Кум. %</th>
+                <th class="text-center px-2 py-2 font-medium w-14">ABC</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr class="border-b border-black/5">
+                <td class="px-4 py-2 text-ink">{{ r.product }}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(r.qty) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(r.revenue) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="px-2 py-2 text-right font-mono {% if r.profit is none %}text-muted{% endif %}">{% if r.profit is none %}—{% else %}{{ '{:,.2f}'.format(r.profit) | replace(',', ' ') | replace('.', ',') }}{% endif %}</td>
+                <td class="px-2 py-2 text-right font-mono text-muted">{{ '{:.1f}'.format(r.share) }}</td>
+                <td class="px-2 py-2 text-right font-mono text-muted">{{ '{:.1f}'.format(r.cum) }}</td>
+                <td class="px-2 py-2 text-center">
+                    <span class="px-2 py-0.5 rounded-lg text-xs {% if r.abc == 'A' %}bg-emerald-50 text-emerald-600{% elif r.abc == 'B' %}bg-blue-50 text-blue-600{% else %}bg-slate-100 text-muted{% endif %}">{{ r.abc }}</span>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="px-4 py-6 text-center text-muted">{{ empty_note }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+<h1 class="text-2xl font-medium mb-4 text-ink">Аналитика продаж</h1>
+
+<form method="get" action="/analytics" class="flex gap-2 mb-5 flex-wrap items-center">
+    <span class="text-sm text-muted">Период оплаты:</span>
+    <input type="date" name="date_from" value="{{ date_from }}" class="px-3 py-2 rounded-lg border border-black/10 bg-white text-sm">
+    <span class="text-sm text-muted">—</span>
+    <input type="date" name="date_to" value="{{ date_to }}" class="px-3 py-2 rounded-lg border border-black/10 bg-white text-sm">
+    <select name="manager_id" class="px-3 py-2 rounded-lg border border-black/10 bg-white text-sm">
+        <option value="">Все менеджеры</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if manager_id == u.id|string %}selected{% endif %}>{{ u.full_name }}</option>
+        {% endfor %}
+    </select>
+    <button class="px-3 py-2 rounded-lg text-sm bg-ink text-white">Применить</button>
+    <a href="/analytics/export?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if manager_id %}manager_id={{ manager_id }}{% endif %}"
+       class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Экспорт xlsx</a>
+</form>
+
+<div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mb-6">
+    {% set cards = [
+        ('КП создано', created_total, ''),
+        ('КП отправлено', funnel['sent']['count'], ''),
+        ('КП принято', funnel['accepted']['count'], conversion ~ '% конверсия'),
+        ('Счетов оплачено', paid_count, ''),
+        ('Оплачено, ₽', '{:,.2f}'.format(paid_sum) | replace(',', ' ') | replace('.', ','), '')
+    ] %}
+    {% for label, value, note in cards %}
+    <div class="bg-white border border-black/10 rounded-2xl p-4">
+        <p class="text-xs text-muted">{{ label }}</p>
+        <p class="text-2xl font-medium text-ink mt-1">{{ value }}</p>
+        {% if note %}<p class="text-xs text-muted mt-1">{{ note }}</p>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<p class="text-sm text-muted mb-4">ABC построен по <b>оплаченным счетам</b> (факт). Прибыль считается по раскладке цен (отпускная б/НДС − входящая б/НДС) × количество; «—» — не задана входящая цена.</p>
+
+{{ abc_table('ABC по выручке (с НДС)', abc_revenue, 'Нет оплаченных продаж за период') }}
+{{ abc_table('ABC по количеству', abc_qty, 'Нет оплаченных продаж за период') }}
+{{ abc_table('ABC по прибыли (отпускная б/НДС − входящая)', abc_profit, 'Нужна входящая цена в товарах') }}
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-black/10 bg-slate-50"><h3 class="text-sm font-medium text-ink">По категориям</h3></div>
+        <table class="w-full text-sm">
+            <thead class="text-muted border-b border-black/10"><tr>
+                <th class="text-left px-4 py-2 font-medium">Категория</th>
+                <th class="text-right px-2 py-2 font-medium w-24">Кол-во</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Выручка, ₽</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Прибыль, ₽</th>
+            </tr></thead>
+            <tbody>
+                {% for c in categories %}
+                <tr class="border-b border-black/5">
+                    <td class="px-4 py-2 text-ink">{{ c.name }}</td>
+                    <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(c.qty) | replace(',', ' ') | replace('.', ',') }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(c.revenue) | replace(',', ' ') | replace('.', ',') }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{% if c.has_profit %}{{ '{:,.2f}'.format(c.profit) | replace(',', ' ') | replace('.', ',') }}{% else %}—{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-4 py-6 text-center text-muted">Нет данных</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-black/10 bg-slate-50"><h3 class="text-sm font-medium text-ink">По менеджерам</h3></div>
+        <table class="w-full text-sm">
+            <thead class="text-muted border-b border-black/10"><tr>
+                <th class="text-left px-4 py-2 font-medium">Менеджер</th>
+                <th class="text-right px-2 py-2 font-medium w-24">Кол-во</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Выручка, ₽</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Прибыль, ₽</th>
+            </tr></thead>
+            <tbody>
+                {% for m in managers %}
+                <tr class="border-b border-black/5">
+                    <td class="px-4 py-2 text-ink">{{ m.name }}</td>
+                    <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(m.qty) | replace(',', ' ') | replace('.', ',') }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(m.revenue) | replace(',', ' ') | replace('.', ',') }}</td>
+                    <td class="px-4 py-2 text-right font-mono">{% if m.has_profit %}{{ '{:,.2f}'.format(m.profit) | replace(',', ' ') | replace('.', ',') }}{% else %}—{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-4 py-6 text-center text-muted">Нет данных</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

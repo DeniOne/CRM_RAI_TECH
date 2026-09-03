@@ -114,6 +114,33 @@ async def init_db():
                     sqlalchemy_text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}")
                 )
 
+    # Миграция: раскладка цен с НДС (фаза 22) — product_prices + снапшот в quote_items.
+    new_price_columns = [
+        ("price_in", "FLOAT"),
+        ("price_out", "FLOAT"),
+        ("vat_rate", "FLOAT DEFAULT 20"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(product_prices)"))
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_price_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE product_prices ADD COLUMN {col_name} {col_type}")
+                )
+    new_quote_item_columns = [
+        ("price_in", "FLOAT"),
+        ("vat_rate", "FLOAT"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(quote_items)"))
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_quote_item_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE quote_items ADD COLUMN {col_name} {col_type}")
+                )
+
     # Create default admin
     async with async_session_maker() as session:
         from app.auth import create_default_admin

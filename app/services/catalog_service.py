@@ -71,8 +71,13 @@ async def get_or_create_default_pricelist(session: AsyncSession) -> PriceList:
     return pricelist
 
 
-async def upsert_price(session: AsyncSession, product_id: int, price_list_id: int, value: Decimal) -> str:
-    """Возвращает 'created' | 'updated'."""
+async def upsert_price(session: AsyncSession, product_id: int, price_list_id: int,
+                       value: Decimal | None = None, price_in: Decimal | None = None,
+                       price_out: Decimal | None = None, vat_rate: Decimal | None = None) -> str:
+    """Возвращает 'created' | 'updated'. Раскладка (фаза 22): price_in — входящая
+    б/НДС, price_out — отпускная б/НДС, vat_rate — %НДС; price (отпускная С НДС,
+    её берут КП/счёт) пересчитывается = price_out * (1 + vat/100). Прямое value —
+    fallback для совместимости со старым импортом."""
     pp = (
         await session.execute(
             select(ProductPrice).where(
@@ -82,10 +87,22 @@ async def upsert_price(session: AsyncSession, product_id: int, price_list_id: in
         )
     ).scalar_one_or_none()
     if pp is None:
-        session.add(ProductPrice(product_id=product_id, price_list_id=price_list_id, price=value))
-        return "created"
-    pp.price = value
-    return "updated"
+        pp = ProductPrice(product_id=product_id, price_list_id=price_list_id, price=value or 0)
+        session.add(pp)
+        status = "created"
+    else:
+        status = "updated"
+    if price_in is not None:
+        pp.price_in = price_in
+    if price_out is not None:
+        pp.price_out = price_out
+    if vat_rate is not None:
+        pp.vat_rate = vat_rate
+    if pp.price_out is not None:
+        pp.price = (Decimal(str(pp.price_out)) * (Decimal("100") + Decimal(str(pp.vat_rate or 20))) / Decimal("100")).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+    elif value is not None:
+        pp.price = value
+    return status
 
 
 async def find_product(session: AsyncSession, source_url: str | None, sku: str | None) -> Product | None:

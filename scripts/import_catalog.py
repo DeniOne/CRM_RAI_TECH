@@ -175,9 +175,6 @@ async def main() -> None:
                 if row["price_raw"] is not None and args.with_prices:
                     pending_prices.append(row)
 
-            # Прайс-лист создаём лениво: только с флагом --with-prices и если
-            # в файле есть хоть одна numeric-цена (см. help: цены поставщика —
-            # входящие, в продажный прайс автоматом не попадают)
             price_values = []
             if args.with_prices and pending_prices:
                 pricelist = await cs.get_or_create_default_pricelist(session)
@@ -187,7 +184,8 @@ async def main() -> None:
                         continue
                     product = await cs.find_product(session, row["url"], None)
                     if product:
-                        await cs.upsert_price(session, product.id, pricelist.id, value)
+                        # цена поставщика = ВХОДЯЩАЯ б/НДС (продажную ставят вручную)
+                        await cs.upsert_price(session, product.id, pricelist.id, price_in=value)
                 report["prices"] = len(pending_prices)
 
             report["categories"] = len(cat_cache)

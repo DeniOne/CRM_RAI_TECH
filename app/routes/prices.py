@@ -75,12 +75,12 @@ async def _prices_page_context(session, q, category_id, page) -> dict:
     prices: dict[int, object] = {}
     if pricelist and products:
         rows = await session.execute(
-            select(ProductPrice.product_id, ProductPrice.price).where(
+            select(ProductPrice).where(
                 ProductPrice.price_list_id == pricelist.id,
                 ProductPrice.product_id.in_([p.id for p in products]),
             )
         )
-        prices = dict(rows.all())
+        prices = {pp.product_id: pp for pp in rows.scalars().all()}
 
     base_qs = urlencode(
         {k: v for k, v in {"q": _parse_q(q) or "", "category_id": category_id or ""}.items() if v}
@@ -132,19 +132,24 @@ async def prices_save(
     pricelist = await cs.get_or_create_default_pricelist(session)
 
     form = await request.form()
-    saved = skipped = 0
+    # Раскладка: price_in_* (входящая б/НДС), price_out_* (отпускная б/НДС),
+    # vat_* (ставка). Отпускная с НДС считается в upsert_price.
+    fields_by_pid: dict[int, dict] = {}
     for key, raw in form.multi_items():
-        if not key.startswith("price_"):
-            continue
-        try:
-            product_id = int(key[len("price_"):])
-        except ValueError:
-            continue
-        value = cs.parse_price_amount(raw)
-        if value is None:
+        for prefix in ("price_in_", "price_out_", "vat_"):
+            if key.startswith(prefix) and key[len(prefix):].isdigit():
+                fields_by_pid.setdefault(int(key[len(prefix):]), {})[prefix[:-1]] = raw
+
+    saved = skipped = 0
+    for product_id, fields in fields_by_pid.items():
+        pin = cs.parse_price_amount(fields.get("price_in"))
+        pout = cs.parse_price_amount(fields.get("price_out"))
+        vat = cs.parse_price_amount(fields.get("vat"))
+        if pin is None and pout is None:
             skipped += 1
             continue
-        await cs.upsert_price(session, product_id, pricelist.id, value)
+        await cs.upsert_price(session, product_id, pricelist.id,
+                              price_in=pin, price_out=pout, vat_rate=vat)
         saved += 1
     await session.commit()
 
@@ -181,7 +186,9 @@ async def prices_import(
         if value is None:
             no_price += 1
             continue
-        status = await cs.upsert_price(session, product.id, pricelist.id, value)
+        # Цена поставщика — ВХОДЯЩАЯ б/НДС (решение владельца 2026-09-04);
+        # отпускную ставят вручную в форме прайса.
+        status = await cs.upsert_price(session, product.id, pricelist.id, price_in=value)
         if status == "created":
             created += 1
         else:

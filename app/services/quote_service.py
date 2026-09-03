@@ -86,6 +86,24 @@ def parse_items_json(raw: str | None) -> list[dict]:
 async def build_quote_items(session: AsyncSession, raw_items: list[dict]) -> tuple[list[QuoteItem], Decimal]:
     """Создаёт QuoteItem со снапшотом из БД (для товарных позиций) и считает суммы.
     Возвращает (items, total)."""
+    from app.models import ProductPrice, PriceList
+
+    # снапшот раскладки цен (входящая б/НДС + ставка НДС) из дефолтного прайса
+    product_ids = [it["product_id"] for it in raw_items if it.get("product_id")]
+    price_map: dict[int, tuple] = {}
+    if product_ids:
+        pl = (
+            await session.execute(
+                select(PriceList).where(PriceList.is_default == True)  # noqa: E712
+            )
+        ).scalar_one_or_none()
+        if pl:
+            rows = await session.execute(
+                select(ProductPrice.product_id, ProductPrice.price_in, ProductPrice.vat_rate)
+                .where(ProductPrice.price_list_id == pl.id, ProductPrice.product_id.in_(product_ids))
+            )
+            price_map = {pid: (pin, vrate) for pid, pin, vrate in rows.all()}
+
     result: list[QuoteItem] = []
     total = Decimal("0.00")
     for sort_order, it in enumerate(raw_items):
@@ -100,10 +118,7 @@ async def build_quote_items(session: AsyncSession, raw_items: list[dict]) -> tup
         price_dec = _dec(it["price"])
         qty = it["qty"].quantize(Decimal("0.001"))
         discount = it["discount_percent"]
-        # Снапшот цены: у товарной позиции цена берётся из БД только если из
-        # формы пришла пустая/нулевая? Нет — билдер присылает цену, которую
-        # видел менеджер (возможна ручная правка). Снапшот строго из формы,
-        # но название/артикул/ед — строго из БД.
+        snap_in, snap_vat = price_map.get(it["product_id"], (None, None)) if it.get("product_id") else (None, None)
         amount = (qty * price_dec * (Decimal("100") - discount) / Decimal("100")).quantize(D2, ROUND_HALF_UP)
         total += amount
         result.append(QuoteItem(
@@ -113,6 +128,8 @@ async def build_quote_items(session: AsyncSession, raw_items: list[dict]) -> tup
             unit=unit,
             qty=qty,
             price=price_dec.quantize(D2, ROUND_HALF_UP),
+            price_in=snap_in,
+            vat_rate=snap_vat,
             discount_percent=discount.quantize(Decimal("0.01")),
             amount=amount,
             sort_order=sort_order,

@@ -53,26 +53,31 @@
                 <th>Наименование</th>
                 <th style="width:18mm;">Кол-во</th>
                 <th style="width:12mm;">Ед</th>
-                <th class="num" style="width:28mm;">Цена, ₽</th>
-                <th class="num" style="width:30mm;">Сумма, ₽</th>
+                <th class="num" style="width:26mm;">Цена, ₽</th>
+                <th class="num" style="width:16mm;">Скидка</th>
+                <th class="num" style="width:28mm;">Сумма, ₽</th>
+                <th class="num" style="width:22mm;">в т.ч. НДС</th>
             </tr>
         </thead>
         <tbody>
-            {% for it in (quote.items if quote else []) %}
+            {% for row in vat_rows %}
             <tr>
                 <td class="num">{{ loop.index }}</td>
-                <td>{{ it.name }}{% if it.sku %} <span class="muted">({{ it.sku }})</span>{% endif %}</td>
-                <td class="num">{{ '{:g}'.format(it.qty) }}</td>
-                <td>{{ it.unit }}</td>
-                <td class="num">{{ '{:,.2f}'.format(it.price) | replace(',', ' ') | replace('.', ',') }}</td>
-                <td class="num">{{ '{:,.2f}'.format(it.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td>{{ row.item.name }}{% if row.item.sku %} <span class="muted">({{ row.item.sku }})</span>{% endif %}</td>
+                <td class="num">{{ '{:g}'.format(row.item.qty) }}</td>
+                <td>{{ row.item.unit }}</td>
+                <td class="num">{{ '{:,.2f}'.format(row.item.price) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="num">{% if row.item.discount_percent %}{{ '{:g}'.format(row.item.discount_percent) }}%{% else %}—{% endif %}</td>
+                <td class="num">{{ '{:,.2f}'.format(row.item.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="num">{% if row.vat is not none %}{{ '{:,.2f}'.format(row.vat) | replace(',', ' ') | replace('.', ',') }}{% else %}—{% endif %}</td>
             </tr>
             {% endfor %}
             <tr class="total">
-                <td colspan="5" style="text-align:right;">Итого</td>
+                <td colspan="6" style="text-align:right;">Итого</td>
                 <td class="num">{{ '{:,.2f}'.format(doc.amount or 0) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="num">{% if vat_total is not none %}{{ '{:,.2f}'.format(vat_total) | replace(',', ' ') | replace('.', ',') }}{% else %}—{% endif %}</td>
             </tr>
-            {% if profile.tax_note %}<tr><td colspan="6" class="muted" style="text-align:right; border:none;">{{ profile.tax_note }}</td></tr>{% endif %}
+            {% if profile.tax_note %}<tr><td colspan="8" class="muted" style="text-align:right; border:none;">{{ profile.tax_note }}</td></tr>{% endif %}
         </tbody>
     </table>
 

@@ -73,6 +73,7 @@ templates = Jinja2Templates(directory=str(settings.TEMPLATES_DIR))
 
 from app.routes import auth, dashboard, leads, tasks, documents, deals, reports, agent, admin, ticker, library, catalog, prices, quotes  # noqa: E402
 from app.routes import invoices as invoices_routes  # noqa: E402
+from app.routes import analytics as analytics_routes  # noqa: E402
 from app.routes import settings as settings_routes  # noqa: E402  (алиас: `settings` в этом модуле — config)
 
 app.include_router(auth.router)
@@ -92,3 +93,4 @@ app.include_router(quotes.router)
 app.include_router(quotes.api_router)
 app.include_router(settings_routes.router)
 app.include_router(invoices_routes.router)
+app.include_router(analytics_routes.router)

@@ -392,7 +392,13 @@ class ProductPrice(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), index=True)
     price_list_id: Mapped[int] = mapped_column(ForeignKey("price_lists.id", ondelete="CASCADE"), index=True)
-    price: Mapped[float] = mapped_column(Numeric(12, 2))
+    # Раскладка цены (решение владельца 2026-09-04): входящая/отпускная без НДС,
+    # ставка НДС; price — отпускная С НДС = price_out * (1 + vat_rate/100), её
+    # видят КП и счёт. Раскладка нужна аналитике (наценка) и бухгалтерии.
+    price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    price_in: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    price_out: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    vat_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=20)
     min_qty: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -456,6 +462,10 @@ class QuoteItem(Base):
     unit: Mapped[str] = mapped_column(String(20), default="шт")
     qty: Mapped[float] = mapped_column(Numeric(12, 3), default=1)
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Снапшот раскладки на момент КП: входящая б/НДС (для прибыли в аналитике)
+    # и ставка НДС (для разбивки в счёте). NULL — цена без раскладки (своя позиция).
+    price_in: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    vat_rate: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
     discount_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

@@ -159,6 +159,21 @@ async def doc_print(request: Request, doc_id: int, preview: str = None, session:
         ] if line
     ]
 
+    # НДС-разбивка по позициям: если у строки есть ставка и налоговая заметка
+    # не говорит «без НДС» — считаем НДС в сумме каждой строки.
+    vat_rows = []
+    vat_total = None
+    if not profile.tax_note and quote:
+        for it in quote.items:
+            rate = it.vat_rate
+            if rate is None:
+                vat_rows.append({"item": it, "vat": None})
+                continue
+            net = float(it.amount) / (1 + float(rate) / 100)
+            vat = float(it.amount) - net
+            vat_rows.append({"item": it, "vat": vat})
+            vat_total = (vat_total or 0.0) + vat
+
     html_ = templates.env.get_template("print/invoice.html").render(
         doc=doc, quote=quote, profile=profile, values=values,
         intro=cs.render_text(tpl.intro, values),
@@ -167,6 +182,7 @@ async def doc_print(request: Request, doc_id: int, preview: str = None, session:
         total_words=dg.money_in_words(doc.amount or 0),
         buyer_lines=buyer_lines,
         supplier_lines=cs.company_requisites_lines(profile),
+        vat_rows=vat_rows, vat_total=vat_total,
     )
     if preview:
         return HTMLResponse(html_)
