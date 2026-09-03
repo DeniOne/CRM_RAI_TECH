@@ -28,6 +28,16 @@ STAGE_COLORS = {
     "lost": "red",
 }
 
+DEAL_STATUS_LABELS = {
+    "new": "Новая",
+    "kp_sent": "КП отправлено",
+    "negotiation": "Переговоры",
+    "contract": "Договор",
+    "invoiced": "Счёт выставлен",
+    "paid": "Оплачено",
+    "lost": "Потеряна",
+}
+
 
 def validate_transition(lead: Lead, from_stage: str, to_stage: str) -> tuple[bool, list[str]]:
     if from_stage == to_stage:

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Отчёты — CRM RAI{% endblock %}
+{% block content %}
+<div class="mb-4">
+    <a href="/reports" class="text-ink text-sm hover:underline">&larr; Назад к аналитике</a>
+</div>
+
+<h1 class="text-2xl font-medium mb-4 text-ink">Центр отчётов</h1>
+
+<div class="bg-white border border-black/10 rounded-2xl p-6 mb-6">
+    <h2 class="text-lg font-medium mb-4 text-ink">Фильтры</h2>
+    <form id="filter-form" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-xs text-muted mb-1">С даты</label>
+            <input type="date" name="date_from" id="f_date_from" class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">По дату</label>
+            <input type="date" name="date_to" id="f_date_to" class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink">
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Регион</label>
+            <select name="region_id" id="f_region_id" class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink">
+                <option value="">Все регионы</option>
+                {% for r in regions %}
+                <option value="{{ r.id }}">{{ r.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-muted mb-1">Менеджер</label>
+            <select name="manager_id" id="f_manager_id" class="w-full border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink">
+                <option value="">Все менеджеры</option>
+                {% for m in managers %}
+                <option value="{{ m.id }}">{{ m.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Воронка -->
+    <div class="bg-white border border-black/10 rounded-2xl p-6">
+        <h3 class="text-base font-medium text-ink mb-2">Воронка продаж</h3>
+        <p class="text-sm text-muted mb-4">Распределение лидов по стадиям с конверсией между этапами.</p>
+        <div class="flex gap-2">
+            <a href="#" data-report="funnel" data-format="xlsx" class="btn-export px-3 py-1.5 text-sm bg-ink text-white rounded-lg hover:bg-ink/90">XLSX</a>
+            <a href="#" data-report="funnel" data-format="docx" class="btn-export px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">DOCX</a>
+        </div>
+    </div>
+
+    <!-- KPI менеджеров -->
+    <div class="bg-white border border-black/10 rounded-2xl p-6">
+        <h3 class="text-base font-medium text-ink mb-2">KPI менеджеров</h3>
+        <p class="text-sm text-muted mb-4">Показатели эффективности: лиды, звонки, КП, сделки, конверсия.</p>
+        <div class="flex gap-2">
+            <a href="#" data-report="managers" data-format="xlsx" class="btn-export px-3 py-1.5 text-sm bg-ink text-white rounded-lg hover:bg-ink/90">XLSX</a>
+            <a href="#" data-report="managers" data-format="docx" class="btn-export px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">DOCX</a>
+        </div>
+    </div>
+
+    <!-- Потерянные лиды -->
+    <div class="bg-white border border-black/10 rounded-2xl p-6">
+        <h3 class="text-base font-medium text-ink mb-2">Потерянные лиды</h3>
+        <p class="text-sm text-muted mb-4">Группировка по причинам потери с примерами лидов.</p>
+        <div class="flex gap-2">
+            <a href="#" data-report="lost_leads" data-format="xlsx" class="btn-export px-3 py-1.5 text-sm bg-ink text-white rounded-lg hover:bg-ink/90">XLSX</a>
+            <a href="#" data-report="lost_leads" data-format="docx" class="btn-export px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">DOCX</a>
+        </div>
+    </div>
+
+    <!-- Пайплайн сделок -->
+    <div class="bg-white border border-black/10 rounded-2xl p-6">
+        <h3 class="text-base font-medium text-ink mb-2">Пайплайн сделок</h3>
+        <p class="text-sm text-muted mb-4">Сделки по статусам: количество и сумма.</p>
+        <div class="flex gap-2">
+            <a href="#" data-report="deals_pipeline" data-format="xlsx" class="btn-export px-3 py-1.5 text-sm bg-ink text-white rounded-lg hover:bg-ink/90">XLSX</a>
+            <a href="#" data-report="deals_pipeline" data-format="docx" class="btn-export px-3 py-1.5 text-sm bg-white border border-black/10 rounded-lg text-ink hover:bg-slate-50">DOCX</a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var form = document.getElementById('filter-form');
+    var buttons = document.querySelectorAll('.btn-export');
+
+    function buildUrl(btn) {
+        var params = new URLSearchParams();
+        var report = btn.getAttribute('data-report');
+        var fmt = btn.getAttribute('data-format');
+        params.set('report', report);
+        params.set('format', fmt);
+
+        var dateFrom = document.getElementById('f_date_from').value;
+        var dateTo = document.getElementById('f_date_to').value;
+        var regionId = document.getElementById('f_region_id').value;
+        var managerId = document.getElementById('f_manager_id').value;
+
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        if (regionId) params.set('region_id', regionId);
+        if (managerId) params.set('manager_id', managerId);
+
+        return '/reports/download?' + params.toString();
+    }
+
+    function updateLinks() {
+        buttons.forEach(function(btn) {
+            btn.href = buildUrl(btn);
+        });
+    }
+
+    form.addEventListener('change', updateLinks);
+    updateLinks();
+})();
+</script>
+{% endblock %}
