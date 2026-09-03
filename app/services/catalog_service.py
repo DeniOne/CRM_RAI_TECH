@@ -125,8 +125,15 @@ async def upsert_category(session: AsyncSession, name: str, sort_order: int) -> 
 
 
 async def upsert_product(session: AsyncSession, cat: ProductCategory | None, row: dict, brand: str) -> str:
-    """Возвращает 'created' | 'updated'."""
-    product = await find_product(session, row.get("url"), row.get("sku"))
+    """Возвращает 'created' | 'updated'. Каталожный upsert матчит ТОЛЬКО по
+    source_url: артикулы поставщика неуникальны (в каталоге АгроВиты 16 строк
+    делят артикул с другой строкой) — sku-фолбэк здесь сливал разные товары.
+    Фолбэк по sku остаётся только в find_product (импорт цен)."""
+    product = None
+    if row.get("url"):
+        product = (
+            await session.execute(select(Product).where(Product.source_url == row["url"]))
+        ).scalar_one_or_none()
     if product is None:
         product = Product(
             name=row["name"], source_url=row.get("url"), brand=brand,

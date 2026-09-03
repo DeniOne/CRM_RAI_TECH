@@ -162,7 +162,7 @@ async def main() -> None:
             rows = cs.read_catalog_rows(args.xlsx, args.limit)
             cats_order: dict[str, int] = {}
             cat_cache: dict[str, object] = {}
-            priced_rows = []
+            pending_prices: list[dict] = []
             for row in rows:
                 if row["category"] and row["category"] not in cat_cache:
                     name = row["category"]
@@ -172,23 +172,23 @@ async def main() -> None:
                 status = await cs.upsert_product(session, cat_cache.get(row["category"]), row, args.brand)
                 report["rows"] += 1
                 report[status] += 1
-                product = await cs.find_product(session, row["url"], row["sku"])
-                if product:
-                    product.source_url_image = row["image"]
-                if row["price_raw"] is not None and product:
-                    priced_rows.append((product, row["price_raw"]))
+                if row["price_raw"] is not None and args.with_prices:
+                    pending_prices.append(row)
 
             # Прайс-лист создаём лениво: только с флагом --with-prices и если
             # в файле есть хоть одна numeric-цена (см. help: цены поставщика —
             # входящие, в продажный прайс автоматом не попадают)
-            price_values = [
-                (p, v) for p, raw in priced_rows if (v := cs.parse_price_amount(raw)) is not None
-            ] if args.with_prices else []
-            if price_values:
+            price_values = []
+            if args.with_prices and pending_prices:
                 pricelist = await cs.get_or_create_default_pricelist(session)
-                for product, value in price_values:
-                    await cs.upsert_price(session, product.id, pricelist.id, value)
-                report["prices"] = len(price_values)
+                for row in pending_prices:
+                    value = cs.parse_price_amount(row["price_raw"])
+                    if value is None:
+                        continue
+                    product = await cs.find_product(session, row["url"], None)
+                    if product:
+                        await cs.upsert_price(session, product.id, pricelist.id, value)
+                report["prices"] = len(pending_prices)
 
             report["categories"] = len(cat_cache)
             await session.commit()
