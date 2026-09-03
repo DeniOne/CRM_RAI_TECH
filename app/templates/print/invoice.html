@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+    /* Печатная форма счёта (фаза 21) — standalone; тексты из Настроек. */
+    @page { size: A4; margin: 14mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 10pt; color: #111; }
+    .mono { font-family: 'DejaVu Sans Mono', monospace; }
+    h1 { font-size: 13pt; margin: 0 0 4mm; }
+    .muted { color: #555; font-size: 8.5pt; }
+    .preline { white-space: pre-line; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+    th, td { border: 1px solid #999; padding: 4pt 6pt; }
+    th { background: #efefef; text-align: left; font-size: 9pt; }
+    .num { text-align: right; font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt; }
+    .total td { background: #efefef; font-weight: bold; }
+    .words { margin-top: 4mm; font-weight: bold; }
+    .footer { margin-top: 6mm; font-size: 9pt; }
+    .requisites { margin-top: 10mm; padding-top: 3mm; border-top: 1px solid #999; font-size: 7.5pt; color: #555;
+                  display: flex; justify-content: space-between; gap: 8mm; }
+    .requisites div { width: 48%; }
+</style>
+</head>
+<body>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6mm;">
+        <div style="font-size:12pt; font-weight:bold;">{{ profile.name }}</div>
+        <div class="muted" style="text-align:right;">
+            {% if values['{Дата}'] %}Дата: {{ values['{Дата}'] }}<br>{% endif %}
+            <span class="mono" style="font-size:11pt; color:#111;">{{ doc.number }}</span>
+        </div>
+    </div>
+
+    <h1>СЧЁТ на оплату № {{ doc.number }}{% if values['{Дата}'] %} от {{ values['{Дата}'] }}{% endif %}</h1>
+
+    <div style="display:flex; gap: 8mm; margin-bottom: 4mm;">
+        <div style="width:50%;">
+            <div class="muted">Поставщик:</div>
+            {% for line in supplier_lines %}<div>{{ line }}</div>{% endfor %}
+        </div>
+        <div style="width:50%;">
+            <div class="muted">Покупатель:</div>
+            {% for line in buyer_lines %}<div>{{ line }}</div>{% endfor %}
+        </div>
+    </div>
+
+    {% if intro %}<p class="preline">{{ intro }}</p>{% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:8mm;">№</th>
+                <th>Наименование</th>
+                <th style="width:18mm;">Кол-во</th>
+                <th style="width:12mm;">Ед</th>
+                <th class="num" style="width:28mm;">Цена, ₽</th>
+                <th class="num" style="width:30mm;">Сумма, ₽</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in (quote.items if quote else []) %}
+            <tr>
+                <td class="num">{{ loop.index }}</td>
+                <td>{{ it.name }}{% if it.sku %} <span class="muted">({{ it.sku }})</span>{% endif %}</td>
+                <td class="num">{{ '{:g}'.format(it.qty) }}</td>
+                <td>{{ it.unit }}</td>
+                <td class="num">{{ '{:,.2f}'.format(it.price) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="num">{{ '{:,.2f}'.format(it.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total">
+                <td colspan="5" style="text-align:right;">Итого</td>
+                <td class="num">{{ '{:,.2f}'.format(doc.amount or 0) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% if profile.tax_note %}<tr><td colspan="6" class="muted" style="text-align:right; border:none;">{{ profile.tax_note }}</td></tr>{% endif %}
+        </tbody>
+    </table>
+
+    {% if total_words %}
+    <p class="words mono">Всего к оплате: {{ total_words }}</p>
+    {% endif %}
+
+    <div class="footer">
+        {% if conditions %}<p class="preline">{{ conditions }}</p>{% endif %}
+        {% if signature %}<p class="preline" style="margin-top:6mm;">{{ signature }}</p>{% endif %}
+        {% if profile.director_name %}<p style="margin-top:4mm;">{{ profile.director_name }} _______________</p>{% endif %}
+    </div>
+
+    {% if supplier_lines %}
+    <div class="requisites preline">
+        <div>
+            <strong>{{ profile.name }}</strong>
+            {% for line in supplier_lines[1:] %}{{ line }}
+{% endfor %}
+        </div>
+        <div class="muted">
+            {% if doc.lead.assigned_manager %}Менеджер: {{ doc.lead.assigned_manager.full_name }}{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

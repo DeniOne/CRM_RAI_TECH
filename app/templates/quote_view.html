@@ -47,11 +47,30 @@
         <button class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вернуть в черновик</button>
     </form>
     {% endif %}
+    {% if quote.status == 'accepted' %}
+    {% set invoices = docs | selectattr('doc_type', 'equalto', 'invoice') | list %}
+    {% set contracts = docs | selectattr('doc_type', 'equalto', 'contract') | list %}
+    {% for d in invoices %}
+    <a href="/invoices/{{ d.id }}" class="px-3 py-1.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">Счёт {{ d.number }}</a>
+    {% endfor %}
+    {% if not invoices %}
+    <form method="post" action="/invoices/create/{{ quote.id }}" class="inline">
+        <input type="hidden" name="kind" value="invoice">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-ink text-white">Сформировать счёт</button>
+    </form>
+    {% endif %}
+    {% for d in contracts %}
+    <a href="/invoices/{{ d.id }}" class="px-3 py-1.5 rounded-lg text-sm bg-blue-50 text-blue-600 border border-blue-200">Договор {{ d.number }}</a>
+    {% endfor %}
+    {% if not contracts %}
+    <form method="post" action="/invoices/create/{{ quote.id }}" class="inline">
+        <input type="hidden" name="kind" value="contract">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Сформировать договор</button>
+    </form>
+    {% endif %}
+    {% endif %}
     <a href="/quotes/{{ quote.id }}/print" target="_blank"
        class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Печать PDF</a>
-    {% if quote.deal_id %}
-    <a href="/deals" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Сделка создана</a>
-    {% endif %}
 </div>
 
 <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">

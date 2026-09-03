@@ -97,6 +97,23 @@ async def init_db():
                 sqlalchemy_text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64)")
             )
 
+    # Миграция: оплата счёта (фаза 21) — paid_at/paid_amount + связь с КП.
+    new_document_columns = [
+        ("paid_at", "DATETIME"),
+        ("paid_amount", "FLOAT"),
+        ("quote_id", "INTEGER REFERENCES quotes(id)"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(
+            sqlalchemy_text("PRAGMA table_info(documents)")
+        )
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_document_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type}")
+                )
+
     # Create default admin
     async with async_session_maker() as session:
         from app.auth import create_default_admin

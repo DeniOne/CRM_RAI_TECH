@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.number }} — CRM RAI{% endblock %}
+{% block content %}
+{% set chip = {'draft': 'bg-slate-100 text-muted', 'sent': 'bg-blue-50 text-blue-600', 'paid': 'bg-emerald-50 text-emerald-600'} %}
+<h1 class="text-2xl font-medium mb-1 text-ink">
+    {{ doc.number }}
+    <span class="px-2 py-0.5 rounded-lg text-xs align-middle {{ chip.get(doc.status, 'bg-slate-100') }}">{{ status_labels.get(doc.status, doc.status) }}</span>
+</h1>
+<p class="text-sm text-muted mb-4">
+    {{ doc.title }}
+    · лид: <a href="/leads/{{ doc.lead.id }}" class="text-blue-500 hover:underline">{{ doc.lead.name }}</a>
+    · сумма <span class="font-mono">{{ '{:,.2f}'.format(doc.amount or 0) | replace(',', ' ') | replace('.', ',') }} ₽</span>
+    · создан {{ doc.created_at.strftime('%d.%m.%Y') }}
+</p>
+
+{% if msg %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">{{ msg }}</div>
+{% endif %}
+
+<div class="flex gap-2 mb-4 flex-wrap">
+    {% if doc.doc_type == 'invoice' %}
+    <a href="/invoices/{{ doc.id }}/print" target="_blank"
+       class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Печать PDF</a>
+    {% if doc.status != 'paid' %}
+    <form method="post" action="/invoices/{{ doc.id }}/pay" class="inline"
+          onsubmit="return confirm('Подтвердить оплату счёта {{ doc.number }}?');">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white">Отметить оплату</button>
+    </form>
+    {% else %}
+    <span class="px-3 py-1.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
+        Оплачен{% if doc.paid_at %} {{ doc.paid_at.strftime('%d.%m.%Y') }}{% endif %}
+    </span>
+    {% endif %}
+    {% elif doc.doc_type == 'contract' %}
+    <a href="/documents/{{ doc.id }}/download?format=docx"
+       class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Скачать DOCX</a>
+    {% endif %}
+    {% if quote %}
+    <a href="/quotes/{{ quote.id }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">КП {{ quote.number }}</a>
+    {% endif %}
+</div>
+
+{% if quote and quote.items %}
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10 bg-slate-50">
+            <tr>
+                <th class="text-left px-4 py-2 font-medium">Позиция</th>
+                <th class="text-right px-2 py-2 font-medium w-20">Кол-во</th>
+                <th class="text-left px-2 py-2 font-medium w-14">Ед</th>
+                <th class="text-right px-2 py-2 font-medium w-28">Цена, ₽</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Сумма, ₽</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in quote.items %}
+            <tr class="border-b border-black/5">
+                <td class="px-4 py-2 text-ink">{{ it.name }}{% if it.sku %} <span class="text-xs font-mono text-muted">{{ it.sku }}</span>{% endif %}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ it.qty }}</td>
+                <td class="px-2 py-2 text-muted">{{ it.unit }}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(it.price) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(it.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="bg-slate-50">
+                <td colspan="4" class="px-4 py-2 text-right font-medium text-ink">Итого</td>
+                <td class="px-4 py-2 text-right font-mono font-medium text-ink">{{ '{:,.2f}'.format(quote.total) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

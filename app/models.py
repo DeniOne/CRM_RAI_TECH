@@ -212,6 +212,7 @@ class Document(Base):
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     doc_type: Mapped[str] = mapped_column(String(20))
+    quote_id: Mapped[Optional[int]] = mapped_column(ForeignKey("quotes.id"), nullable=True)
     template_id: Mapped[Optional[int]] = mapped_column(ForeignKey("document_templates.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(500))
     number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -220,6 +221,9 @@ class Document(Base):
     file_path_pdf: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="draft")
     sent_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    # Оплата счёта (фаза 21): проставляются при отметке оплаты
+    paid_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    paid_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

@@ -44,15 +44,21 @@ async def get_template(session: AsyncSession, kind: str) -> PrintTemplate:
     tpl = (
         await session.execute(select(PrintTemplate).where(PrintTemplate.kind == kind))
     ).scalar_one_or_none()
+    defaults = {
+        "quote": PrintTemplate(
+            kind="quote",
+            intro="Просим рассмотреть коммерческое предложение на поставку:",
+            conditions="Цены действительны до {Действует_до}.",
+            signature="С уважением,\n{Менеджер}",
+        ),
+        "invoice": PrintTemplate(
+            kind="invoice",
+            intro="",
+            conditions="Оплата в течение 5 банковских дней.",
+            signature="",
+        ),
+    }
     if tpl is None:
-        defaults = {
-            "quote": PrintTemplate(
-                kind="quote",
-                intro="Просим рассмотреть коммерческое предложение на поставку:",
-                conditions="Цены действительны до {Действует_до}.",
-                signature="С уважением,\n{Менеджер}",
-            ),
-        }
         tpl = defaults.get(kind) or PrintTemplate(kind=kind)
         session.add(tpl)
         await session.flush()

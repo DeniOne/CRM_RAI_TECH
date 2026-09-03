@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_session
-from app.models import Lead, PriceList, Product, ProductPrice, Quote
+from app.models import Document, Lead, PriceList, Product, ProductPrice, Quote
 from app.services import company_service as cs
 from app.services import quote_service as qs
 from app.services.pdf_service import PDFUnavailable, render_pdf
@@ -183,12 +183,17 @@ async def quote_view(request: Request, quote_id: int, msg: str = None, session: 
 
     user = await _user_401(request, session)
     quote = await _quote_or_404(session, quote_id)
+    docs = (
+        await session.execute(
+            select(Document).where(Document.quote_id == quote.id).order_by(Document.id.desc())
+        )
+    ).scalars().all()
     return templates.TemplateResponse(
         request=request,
         name="quote_view.html",
         context={
             "current_user": user, "quote": quote, "status_labels": STATUS_LABELS, "msg": msg,
-            "today": datetime.now().date(),
+            "today": datetime.now().date(), "docs": docs,
         },
     )
 
