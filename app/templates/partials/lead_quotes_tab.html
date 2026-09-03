@@ -1,0 +1,32 @@
+<div class="flex items-center justify-between mb-3">
+    <p class="text-sm text-muted">КП этого лида. Черновик правится, отправленное — только статусы.</p>
+    <a href="/quotes/new?lead_id={{ lead.id }}" class="px-3 py-1.5 rounded-lg text-sm bg-ink text-white">+ Создать КП</a>
+</div>
+{% set chip = {'draft': 'bg-slate-100 text-muted', 'sent': 'bg-blue-50 text-blue-600', 'accepted': 'bg-emerald-50 text-emerald-600', 'rejected': 'bg-red-50 text-red-600'} %}
+{% set labels = {'draft': 'Черновик', 'sent': 'Отправлено', 'accepted': 'Принято', 'rejected': 'Отказ'} %}
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left px-4 py-2 font-medium">Номер</th>
+                <th class="text-left px-4 py-2 font-medium">Статус</th>
+                <th class="text-right px-4 py-2 font-medium">Сумма, ₽</th>
+                <th class="text-left px-4 py-2 font-medium">Действует до</th>
+                <th class="text-left px-4 py-2 font-medium">Создано</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in quotes %}
+            <tr class="border-b border-black/10 hover:bg-slate-50">
+                <td class="px-4 py-2"><a href="/quotes/{{ q.id }}" class="font-mono text-blue-500 hover:underline">{{ q.number }}</a></td>
+                <td class="px-4 py-2"><span class="px-2 py-0.5 rounded-lg text-xs {{ chip.get(q.status, 'bg-slate-100') }}">{{ labels.get(q.status, q.status) }}</span></td>
+                <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(q.total) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="px-4 py-2 text-muted">{{ q.valid_until.strftime('%d.%m.%Y') if q.valid_until else '—' }}</td>
+                <td class="px-4 py-2 text-muted">{{ q.created_at.strftime('%d.%m.%Y') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-4 py-8 text-center text-muted">КП ещё не создавались</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ quote.number }} — CRM RAI{% endblock %}
+{% block content %}
+{% set chip = {'draft': 'bg-slate-100 text-muted', 'sent': 'bg-blue-50 text-blue-600', 'accepted': 'bg-emerald-50 text-emerald-600', 'rejected': 'bg-red-50 text-red-600'} %}
+<h1 class="text-2xl font-medium mb-1 text-ink">
+    {{ quote.number }}
+    <span class="px-2 py-0.5 rounded-lg text-xs align-middle {{ chip.get(quote.status, 'bg-slate-100') }}">{{ status_labels.get(quote.status, quote.status) }}</span>
+    {% if quote.valid_until and quote.status == 'sent' and quote.valid_until < today %}
+    <span class="px-2 py-0.5 rounded-lg text-xs align-middle bg-amber-50 text-amber-600">Просрочено</span>
+    {% endif %}
+</h1>
+<p class="text-sm text-muted mb-4">
+    Лид: <a href="/leads/{{ quote.lead.id }}" class="text-blue-500 hover:underline">{{ quote.lead.name }}</a>
+    · автор {{ quote.user.full_name }}
+    · создано {{ quote.created_at.strftime('%d.%m.%Y') }}
+    {% if quote.sent_at %}· отправлено {{ quote.sent_at.strftime('%d.%m.%Y') }}{% endif %}
+    {% if quote.valid_until %}· действительно до {{ quote.valid_until.strftime('%d.%m.%Y') }}{% endif %}
+</p>
+
+{% if msg %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">{{ msg }}</div>
+{% endif %}
+
+<div class="flex gap-2 mb-4 flex-wrap">
+    {% if quote.status == 'draft' %}
+    <form method="post" action="/quotes/{{ quote.id }}/status" class="inline">
+        <input type="hidden" name="action" value="send">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-ink text-white">Отправлено клиенту</button>
+    </form>
+    <a href="/quotes/{{ quote.id }}/edit" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Редактировать</a>
+    {% elif quote.status == 'sent' %}
+    <form method="post" action="/quotes/{{ quote.id }}/status" class="inline">
+        <input type="hidden" name="action" value="accept">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white">Принято клиентом</button>
+    </form>
+    <form method="post" action="/quotes/{{ quote.id }}/status" class="inline">
+        <input type="hidden" name="action" value="reject">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-white border border-red-200 text-red-600 hover:bg-red-50">Отказ</button>
+    </form>
+    <form method="post" action="/quotes/{{ quote.id }}/status" class="inline">
+        <input type="hidden" name="action" value="reopen">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">В черновик</button>
+    </form>
+    {% elif quote.status == 'rejected' %}
+    <form method="post" action="/quotes/{{ quote.id }}/status" class="inline">
+        <input type="hidden" name="action" value="reopen">
+        <button class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вернуть в черновик</button>
+    </form>
+    {% endif %}
+    <a href="/quotes/{{ quote.id }}/print" target="_blank"
+       class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Печать PDF</a>
+    {% if quote.deal_id %}
+    <a href="/deals" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Сделка создана</a>
+    {% endif %}
+</div>
+
+<div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10 bg-slate-50">
+            <tr>
+                <th class="text-left px-4 py-2 font-medium">Товар</th>
+                <th class="text-right px-2 py-2 font-medium w-20">Кол-во</th>
+                <th class="text-left px-2 py-2 font-medium w-14">Ед</th>
+                <th class="text-right px-2 py-2 font-medium w-28">Цена, ₽</th>
+                <th class="text-right px-2 py-2 font-medium w-20">Скидка</th>
+                <th class="text-right px-4 py-2 font-medium w-32">Сумма, ₽</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in quote.items %}
+            <tr class="border-b border-black/5">
+                <td class="px-4 py-2 text-ink">{{ it.name }}{% if it.sku %} <span class="text-xs font-mono text-muted">{{ it.sku }}</span>{% endif %}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ it.qty }} </td>
+                <td class="px-2 py-2 text-muted">{{ it.unit }}</td>
+                <td class="px-2 py-2 text-right font-mono">{{ '{:,.2f}'.format(it.price) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="px-2 py-2 text-right font-mono">{% if it.discount_percent %}{{ '{:g}'.format(it.discount_percent) }}%{% else %}—{% endif %}</td>
+                <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(it.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-4 py-8 text-center text-muted">Нет позиций</td></tr>
+            {% endfor %}
+            {% if quote.items %}
+            <tr class="bg-slate-50">
+                <td colspan="5" class="px-4 py-2 text-right font-medium text-ink">Итого</td>
+                <td class="px-4 py-2 text-right font-mono font-medium text-ink">{{ '{:,.2f}'.format(quote.total) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% if quote.comment %}
+<p class="text-sm text-muted mt-3">Комментарий: {{ quote.comment }}</p>
+{% endif %}
+{% endblock %}

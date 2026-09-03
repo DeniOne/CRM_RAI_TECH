@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Правка КП ' + quote.number if mode == 'edit' else 'Новое КП' }} — CRM RAI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-medium mb-1 text-ink">
+    {{ 'Правка ' + quote.number if mode == 'edit' else 'Новое КП' }} —
+    <a href="/leads/{{ lead.id }}" class="text-blue-500 hover:underline">{{ lead.name }}</a>
+</h1>
+<p class="text-sm text-muted mb-4">Цена подтягивается из базового прайса и правится вручную. Суммы пересчитываются на лету.</p>
+
+{% if error %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-red-50 text-red-600 border border-red-200">{{ error }}</div>
+{% endif %}
+
+<form id="quote-form" method="post" action="{{ '/quotes/' ~ quote.id ~ '/update' if mode == 'edit' else '/quotes/create' }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}">
+    <input type="hidden" name="items_json" id="items_json">
+
+    <div class="flex gap-3 mb-4 flex-wrap items-center">
+        <label class="text-sm text-muted">Действительно до
+            <input type="date" name="valid_until" value="{{ default_valid_until }}"
+                   class="ml-1 px-3 py-2 rounded-lg border border-black/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+        </label>
+        <label class="text-sm text-muted flex-1 min-w-64">Комментарий
+            <input type="text" name="comment" placeholder="условия, доставка…"
+                   class="w-full px-3 py-2 rounded-lg border border-black/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+        </label>
+    </div>
+
+    <div class="relative mb-3 max-w-xl">
+        <input id="product-search" type="text" autocomplete="off" placeholder="Поиск товара: название или артикул…"
+               class="w-full px-3 py-2 rounded-lg border border-black/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
+        <div id="search-results" class="hidden absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-black/10 rounded-xl shadow-lg max-h-80 overflow-y-auto"></div>
+    </div>
+    <button type="button" id="add-custom"
+            class="mb-3 px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">+ Своя позиция</button>
+
+    <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="text-muted border-b border-black/10 bg-slate-50">
+                <tr>
+                    <th class="text-left px-3 py-2 font-medium">Товар</th>
+                    <th class="text-right px-2 py-2 font-medium w-24">Кол-во</th>
+                    <th class="text-left px-2 py-2 font-medium w-16">Ед</th>
+                    <th class="text-right px-2 py-2 font-medium w-32">Цена, ₽</th>
+                    <th class="text-right px-2 py-2 font-medium w-24">Скидка %</th>
+                    <th class="text-right px-3 py-2 font-medium w-32">Сумма, ₽</th>
+                    <th class="w-10"></th>
+                </tr>
+            </thead>
+            <tbody id="items-body"></tbody>
+        </table>
+    </div>
+
+    <div class="flex items-center justify-between mt-4">
+        <a href="{% if mode == 'edit' %}/quotes/{{ quote.id }}{% else %}/leads/{{ lead.id }}{% endif %}"
+           class="px-3 py-2 rounded-lg text-sm text-muted hover:text-ink">Отмена</a>
+        <div class="flex items-center gap-4">
+            <span class="text-sm text-muted">Итого: <span id="quote-total" class="text-xl font-mono text-ink">0,00</span> ₽</span>
+            <button type="submit" class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить черновик</button>
+        </div>
+    </div>
+</form>
+
+<script>window.QUOTE_BOOTSTRAP = { mode: "{{ mode }}", items: {{ bootstrap_items | tojson }} };</script>
+<script src="/static/js/quote_builder.js"></script>
+{% endblock %}

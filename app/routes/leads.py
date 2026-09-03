@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_session
-from app.models import Lead, Contact, ContactLog, Comment, Task, User, Region, StageHistory, AgentMessage
+from app.models import Quote, Lead, Contact, ContactLog, Comment, Task, User, Region, StageHistory, AgentMessage
 from app.services.funnel_service import (
     STAGES, STAGE_LABELS, STAGE_COLORS, change_stage, validate_transition
 )
@@ -372,6 +372,13 @@ async def lead_card(
     regions_result = await session.execute(select(Region).order_by(Region.name))
     regions = regions_result.scalars().all()
 
+    quotes_result = await session.execute(
+        select(Quote).where(Quote.lead_id == lead_id)
+        .options(selectinload(Quote.items))
+        .order_by(Quote.id.desc())
+    )
+    quotes = quotes_result.scalars().unique().all()
+
     entries = _build_journal_entries(lead)
 
     return templates.TemplateResponse(
@@ -385,6 +392,7 @@ async def lead_card(
             "users": users,
             "regions": regions,
             "entries": entries,
+            "quotes": quotes,
             "kanban_query": kanban_query,
         },
     )

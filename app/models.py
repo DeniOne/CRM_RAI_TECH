@@ -395,3 +395,65 @@ class ProductPrice(Base):
 
     product: Mapped["Product"] = relationship()
     price_list: Mapped["PriceList"] = relationship(back_populates="prices")
+
+
+class SequenceCounter(Base):
+    """Счётчик номеров документов (КП, счёт...) по годам. name+year уникальны."""
+    __tablename__ = "sequence_counters"
+    __table_args__ = (
+        UniqueConstraint("name", "year", name="uq_counter_name_year"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50))
+    year: Mapped[int] = mapped_column(Integer)
+    value: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Quote(Base):
+    """Коммерческое предложение. Позиции — СНАПШОТ (name/price на момент КП):
+    смена прайса не должна менять отправленные КП задним числом."""
+    __tablename__ = "quotes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    number: Mapped[str] = mapped_column(String(30), unique=True, index=True)  # КП-2026-0001
+    lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id"), index=True)
+    deal_id: Mapped[Optional[int]] = mapped_column(ForeignKey("deals.id"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # draft → sent → accepted | rejected; sent/rejected → draft (правка)
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    valid_until: Mapped[Optional[date]] = mapped_column(nullable=True)
+    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    lead: Mapped["Lead"] = relationship()
+    deal: Mapped[Optional["Deal"]] = relationship()
+    user: Mapped["User"] = relationship()
+    items: Mapped[List["QuoteItem"]] = relationship(
+        back_populates="quote", cascade="all, delete-orphan", order_by="QuoteItem.sort_order"
+    )
+
+
+class QuoteItem(Base):
+    """Позиция КП. product_id nullable — «своя позиция» (доставка, монтаж...).
+    name/sku/unit/price — снапшот на момент добавления."""
+    __tablename__ = "quote_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    quote_id: Mapped[int] = mapped_column(ForeignKey("quotes.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(512))
+    sku: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    unit: Mapped[str] = mapped_column(String(20), default="шт")
+    qty: Mapped[float] = mapped_column(Numeric(12, 3), default=1)
+    price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    discount_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    quote: Mapped["Quote"] = relationship(back_populates="items")

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+    /* Печатная форма КП — standalone, без CDN. Шрифты системные контейнера
+       (fonts-dejavu-core из Dockerfile); Geist — после локальных woff2 (фаза 20). */
+    @page { size: A4; margin: 18mm 14mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 10pt; color: #111; }
+    .mono { font-family: 'DejaVu Sans Mono', monospace; }
+    h1 { font-size: 14pt; margin: 0 0 2mm; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm; }
+    .muted { color: #555; font-size: 8.5pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+    th, td { border: 1px solid #999; padding: 4pt 6pt; }
+    th { background: #efefef; text-align: left; font-size: 9pt; }
+    .num { text-align: right; font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt; }
+    .total td { background: #efefef; font-weight: bold; }
+    .footer { margin-top: 10mm; font-size: 9pt; color: #333; }
+</style>
+</head>
+<body>
+    <div class="head">
+        <div>
+            <div style="font-size:12pt; font-weight:bold;">РАИ Технологии</div>
+            <div class="muted">Оборудование для животноводства · премиксы · биодобавки</div>
+        </div>
+        <div class="muted" style="text-align:right;">
+            Коммерческое предложение<br>
+            <span class="mono" style="font-size:11pt; color:#111;">№ {{ quote.number }}</span><br>
+            от {{ quote.created_at.strftime('%d.%m.%Y') }}
+        </div>
+    </div>
+
+    <p>
+        <span class="muted">Покупателю:</span>
+        <strong>{{ quote.lead.name }}</strong>
+        {% if quote.lead.head_name %}· {{ quote.lead.head_name }}{% endif %}
+        {% if quote.lead.region %}· {{ quote.lead.region.name }}{% endif %}
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:6mm;">№</th>
+                <th>Наименование</th>
+                <th style="width:24mm;">Артикул</th>
+                <th class="num" style="width:16mm;">Кол-во</th>
+                <th style="width:12mm;">Ед</th>
+                <th class="num" style="width:24mm;">Цена, ₽</th>
+                <th class="num" style="width:16mm;">Скидка</th>
+                <th class="num" style="width:26mm;">Сумма, ₽</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in quote.items %}
+            <tr>
+                <td class="num">{{ loop.index }}</td>
+                <td>{{ it.name }}</td>
+                <td class="mono">{{ it.sku or '' }}</td>
+                <td class="num">{{ '{:g}'.format(it.qty) }}</td>
+                <td>{{ it.unit }}</td>
+                <td class="num">{{ '{:,.2f}'.format(it.price) | replace(',', ' ') | replace('.', ',') }}</td>
+                <td class="num">{% if it.discount_percent %}{{ '{:g}'.format(it.discount_percent) }}%{% else %}—{% endif %}</td>
+                <td class="num">{{ '{:,.2f}'.format(it.amount) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total">
+                <td colspan="7" style="text-align:right;">Итого</td>
+                <td class="num">{{ '{:,.2f}'.format(quote.total) | replace(',', ' ') | replace('.', ',') }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer">
+        {% if quote.valid_until %}<p>Цены действительны до <strong>{{ quote.valid_until.strftime('%d.%m.%Y') }}</strong>.</p>{% endif %}
+        {% if quote.comment %}<p>{{ quote.comment }}</p>{% endif %}
+        <p class="muted">Менеджер: {{ quote.user.full_name }}</p>
+    </div>
+</body>
+</html>

@@ -34,6 +34,7 @@ async def init_db():
         User, Region, Lead, StageHistory, Contact, ContactLog, Comment, Task, Deal,
         Document, DocumentTemplate, Invite, LibraryFolder, LibraryFile,
         ProductCategory, Product, PriceList, ProductPrice,
+        SequenceCounter, Quote, QuoteItem,
     )
 
     # WAL mode для concurrent reads/writes — уменьшает "database is locked"
