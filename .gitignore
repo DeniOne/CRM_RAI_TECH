@@ -23,6 +23,7 @@ storage/*.db.local-before-refresh-*
 storage/library/
 storage/documents/
 storage/catalog/
+storage/company/
 
 # OS
 .DS_Store
