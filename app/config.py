@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     STATIC_DIR: Path = BASE_DIR / "app" / "static"
     DOCX_TEMPLATES_DIR: Path = BASE_DIR / "templates_docx"
     LIBRARY_DIR: Path = BASE_DIR / "storage" / "library"
+    # Каталог товаров. Картинки — только здесь (volume, переживает пересоздание
+    # контейнера); app/static не используется — он запекается в образ.
+    CATALOG_DIR: Path = BASE_DIR / "storage" / "catalog"
+    CATALOG_IMAGES_DIR: Path = BASE_DIR / "storage" / "catalog" / "images"
 
     class Config:
         env_file = ".env"
@@ -44,3 +48,4 @@ settings = Settings()
 settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 (settings.STORAGE_DIR / "documents").mkdir(parents=True, exist_ok=True)
 settings.LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+settings.CATALOG_IMAGES_DIR.mkdir(parents=True, exist_ok=True)

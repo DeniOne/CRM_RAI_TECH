@@ -22,6 +22,7 @@ storage/*.db.fresh-from-prod
 storage/*.db.local-before-refresh-*
 storage/library/
 storage/documents/
+storage/catalog/
 
 # OS
 .DS_Store

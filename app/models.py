@@ -307,3 +307,55 @@ class LibraryFile(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     folder: Mapped[Optional["LibraryFolder"]] = relationship(back_populates="files")
+
+
+class ProductCategory(Base):
+    """Категория каталога. parent_id=None — корень. Дерево любой глубины:
+    поставщики приходят с разной вложенностью (у АгроВиты — один уровень)."""
+    __tablename__ = "product_categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("product_categories.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    parent: Mapped[Optional["ProductCategory"]] = relationship(
+        remote_side="ProductCategory.id", back_populates="children"
+    )
+    children: Mapped[List["ProductCategory"]] = relationship(
+        back_populates="parent", cascade="all, delete-orphan"
+    )
+    products: Mapped[List["Product"]] = relationship(back_populates="category")
+
+
+class Product(Base):
+    """Товар каталога — только номенклатура. Цены живут в прайс-листах (фаза 18),
+    позиции КП — в quote_items (фаза 19). attrs_json — гибкие характеристики
+    (мощность, объём, состав), чтобы не ALTER'ить таблицу под каждый атрибут."""
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    category_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("product_categories.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(512), index=True)
+    sku: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    unit: Mapped[str] = mapped_column(String(20), default="шт")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # resale — перепродажа (оборудование поставщика), own — собственный продукт (Грипил)
+    origin: Mapped[str] = mapped_column(String(20), default="resale")
+    # Имя файла в storage/catalog/images/ (без пути — URL строится /catalog/images/{file})
+    image_file: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Страница товара на сайте производителя; в каталоге АгроВиты уникален — upsert-ключ
+    source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, index=True)
+    attrs_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    category: Mapped[Optional["ProductCategory"]] = relationship(back_populates="products")

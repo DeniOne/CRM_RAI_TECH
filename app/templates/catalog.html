@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Каталог — CRM RAI{% endblock %}
+{% block content %}
+{% macro cat_link(node, depth) %}
+{% set c = node.obj %}
+<a href="/catalog?category_id={{ c.id }}"
+   hx-get="/catalog/products?category_id={{ c.id }}{% if q %}&q={{ q | urlencode }}{% endif %}"
+   hx-target="#catalog-products" hx-swap="outerHTML"
+   hx-push-url="/catalog?category_id={{ c.id }}{% if q %}&q={{ q | urlencode }}{% endif %}"
+   class="flex items-center justify-between gap-2 pr-3 py-1.5 rounded-lg text-sm {% if c.id == category_id %}bg-ink text-white{% else %}text-ink hover:bg-slate-100{% endif %}"
+   style="padding-left: {{ 12 + depth * 14 }}px"
+   title="{{ c.name }}">
+    <span class="truncate">{{ c.name }}</span>
+    <span class="text-xs shrink-0 {% if c.id == category_id %}text-white/70{% else %}text-muted{% endif %}">{{ c.total }}</span>
+</a>
+{% for ch in node.children %}{{ cat_link(ch, depth + 1) }}{% endfor %}
+{% endmacro %}
+<div class="flex gap-6 h-full">
+    <aside class="w-64 shrink-0 overflow-y-auto">
+        <h1 class="text-2xl font-medium mb-4 text-ink">Каталог</h1>
+        <nav class="space-y-0.5 pb-4">
+            <a href="/catalog"
+               hx-get="/catalog/products" hx-target="#catalog-products" hx-swap="outerHTML" hx-push-url="/catalog"
+               class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {% if not category_id %}bg-ink text-white{% else %}text-ink hover:bg-slate-100{% endif %}">
+                <span>Все товары</span>
+                <span class="text-xs shrink-0 {% if not category_id %}text-white/70{% else %}text-muted{% endif %}">{{ roots | sum(attribute='obj.total') }}</span>
+            </a>
+            {% for node in roots %}{{ cat_link(node, 0) }}{% endfor %}
+        </nav>
+    </aside>
+    <section class="flex-1 min-w-0">
+        {% include "partials/catalog_products.html" %}
+    </section>
+</div>
+{% endblock %}

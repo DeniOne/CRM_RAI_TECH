@@ -1,0 +1,64 @@
+{# Партиал сетки товаров + строка поиска. Заменяет сам себя (#catalog-products),
+   поэтому форма поиска живёт внутри — скрытые category_id/page всегда актуальны. #}
+<div id="catalog-products">
+    <form hx-get="/catalog/products" hx-target="#catalog-products" hx-swap="outerHTML"
+          hx-trigger="input changed delay:300ms from:find input[name='q'], submit"
+          class="mb-4" onsubmit="return false;">
+        <input type="search" name="q" value="{{ q }}" autocomplete="off"
+               placeholder="Поиск по названию или артикулу…"
+               class="w-full max-w-md px-3 py-2 rounded-lg border border-black/10 bg-white text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ink/10">
+        <input type="hidden" name="category_id" value="{{ category_id or '' }}">
+    </form>
+
+    <p class="text-xs text-muted mb-3">
+        Найдено: <span class="font-mono">{{ total }}</span>
+        {% if pages > 1 %}· страница {{ page }} из {{ pages }}{% endif %}
+    </p>
+
+    {% if products %}
+    <div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-3">
+        {% for p in products %}
+        <article class="bg-white border border-black/10 rounded-xl p-3 flex flex-col gap-2 hover:border-black/25 transition-colors">
+            <div class="h-36 flex items-center justify-center bg-canvas rounded-lg overflow-hidden">
+                {% if p.image_file %}
+                <img src="/catalog/images/{{ p.image_file }}" alt="{{ p.name }}" loading="lazy"
+                     class="max-h-full max-w-full object-contain">
+                {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-muted/40" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                {% endif %}
+            </div>
+            <p class="text-sm text-ink leading-snug line-clamp-2 min-h-[2.5rem]" title="{{ p.name }}">{{ p.name }}</p>
+            <div class="flex items-center justify-between gap-2 mt-auto">
+                {% if p.sku %}
+                <span class="text-xs font-mono text-muted truncate" title="Артикул">{{ p.sku }}</span>
+                {% else %}<span></span>{% endif %}
+                <span class="text-xs text-muted shrink-0">цена по запросу</span>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+
+    {% if pages > 1 %}
+    <div class="flex items-center justify-center gap-3 mt-6">
+        {% if page > 1 %}
+        <button hx-get="/catalog/products?{{ base_qs }}&page={{ page - 1 }}"
+                hx-target="#catalog-products" hx-swap="outerHTML"
+                class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">← Назад</button>
+        {% endif %}
+        {% if page < pages %}
+        <button hx-get="/catalog/products?{{ base_qs }}&page={{ page + 1 }}"
+                hx-target="#catalog-products" hx-swap="outerHTML"
+                class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вперёд →</button>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="bg-white border border-black/10 rounded-2xl px-4 py-16 text-center">
+        <p class="text-sm text-muted">Ничего не найдено{% if q %} по запросу «{{ q }}»{% endif %}</p>
+    </div>
+    {% endif %}
+</div>
