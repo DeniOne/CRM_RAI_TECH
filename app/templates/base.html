@@ -74,6 +74,7 @@
                 <a href="/kanban?manager=all" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Все лиды</a>
                 {% endif %}
                 {% if current_user.role.value == 'admin' %}
+                <a href="/settings" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Настройки</a>
                 <a href="/admin/users" class="block px-3 py-2 rounded-lg text-sm text-ink hover:bg-slate-100">Пользователи</a>
                 {% endif %}
             </nav>

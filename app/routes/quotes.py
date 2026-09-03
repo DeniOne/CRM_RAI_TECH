@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
+from app.config import settings
 from app.database import get_session
 from app.models import Lead, PriceList, Product, ProductPrice, Quote
+from app.services import company_service as cs
 from app.services import quote_service as qs
 from app.services.pdf_service import PDFUnavailable, render_pdf
 
@@ -50,7 +52,16 @@ async def _quote_or_404(session: AsyncSession, quote_id: int) -> Quote:
     quote = (
         await session.execute(
             select(Quote).where(Quote.id == quote_id)
-            .options(selectinload(Quote.items), selectinload(Quote.lead), selectinload(Quote.user))
+            .options(
+                selectinload(Quote.items),
+                # печатная форма трогает assigned_manager и region лида —
+                # ленивая загрузка в async-сессии = MissingGreenlet
+                selectinload(Quote.lead).options(
+                    selectinload(Lead.assigned_manager),
+                    selectinload(Lead.region),
+                ),
+                selectinload(Quote.user),
+            )
         )
     ).scalar_one_or_none()
     if not quote:
@@ -258,20 +269,46 @@ async def quote_status(
 
 
 @router.get("/{quote_id}/print")
-async def quote_print(request: Request, quote_id: int, session: AsyncSession = Depends(get_session)):
-    """Печатная форма КП → PDF (WeasyPrint в контейнере)."""
+async def quote_print(request: Request, quote_id: int, preview: str = None, session: AsyncSession = Depends(get_session)):
+    """Печатная форма КП: тексты из редактируемого шаблона (Настройки),
+    логотип/реквизиты из профиля компании. preview=1 → HTML вместо PDF."""
     from app.main import templates
 
     await _user_401(request, session)
     quote = await _quote_or_404(session, quote_id)
-    html = templates.env.get_template("print/quote.html").render(quote=quote)
+    profile = await cs.get_profile(session)
+    tpl = await cs.get_template(session, "quote")
+    values = cs.placeholder_values(profile, quote)
+
+    logo_data_uri = None
+    if profile.logo_path:
+        logo_file = settings.COMPANY_DIR / profile.logo_path
+        if logo_file.is_file():
+            import base64
+            mime = "image/png" if logo_file.suffix == ".png" else "image/jpeg"
+            logo_data_uri = f"data:{mime};base64," + base64.b64encode(logo_file.read_bytes()).decode()
+
+    html_ = templates.env.get_template("print/quote.html").render(
+        quote=quote,
+        profile=profile,
+        values=values,
+        intro=cs.render_text(tpl.intro, values),
+        conditions=cs.render_text(tpl.conditions, values),
+        signature=cs.render_text(tpl.signature, values),
+        requisites_lines=cs.company_requisites_lines(profile),
+        requisites_head=", ".join(x for x in (profile.phone, profile.email, profile.site) if x),
+        tax_note=profile.tax_note,
+        logo_data_uri=logo_data_uri,
+    )
+    if preview:
+        return HTMLResponse(html_)
     try:
-        pdf = render_pdf(html)
+        pdf = render_pdf(html_)
     except PDFUnavailable as e:
         return HTMLResponse(
             f"<h2>PDF сейчас недоступен</h2><p>{e}</p>"
             "<p>Печатная форма рендерится WeasyPrint'ом — он установлен в контейнере прода. "
-            "Проверь соединение с raitechnology.online.</p>",
+            "Можно открыть HTML-версию: добавить ?preview=1 к адресу.</p>",
             status_code=503,
         )
     from fastapi.responses import Response

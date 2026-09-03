@@ -457,3 +457,40 @@ class QuoteItem(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     quote: Mapped["Quote"] = relationship(back_populates="items")
+
+
+class CompanyProfile(Base):
+    """Реквизиты продавца (singleton id=1) для печатных форм + настройки НДС и логотип."""
+    __tablename__ = "company_profile"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), default="РАИ Технологии")
+    inn: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    kpp: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    ogrn: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    legal_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    site: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    bank_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    bank_bic: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    bank_account: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    bank_corr_account: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    director_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tax_note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # «Без НДС» / «НДС не облагается (УСН)»
+    logo_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # имя файла в storage/company/
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class PrintTemplate(Base):
+    """Редактируемые тексты печатных форм (kind='quote', позже 'invoice'/'contract').
+    Текст с кириллическими плейсхолдерами {Менеджер}, {Клиент}...; рендер —
+    словарная замена по экранированному тексту, НЕ Jinja (анти-RCE)."""
+    __tablename__ = "print_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(20), unique=True)  # quote | invoice | contract
+    intro: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # текст до таблицы
+    conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # условия после таблицы
+    signature: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # подпись
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

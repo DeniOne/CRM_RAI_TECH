@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Настройки — CRM RAI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-medium mb-4 text-ink">Настройки</h1>
+
+{% if msg %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">{{ msg }}</div>
+{% endif %}
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+    <section>
+        <h2 class="text-lg font-medium text-ink mb-3">Реквизиты компании</h2>
+        <form method="post" action="/settings/company" class="bg-white border border-black/10 rounded-2xl p-4 grid grid-cols-2 gap-3">
+            <label class="col-span-2 text-xs text-muted">Название
+                <input name="name" value="{{ profile.name or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">ИНН
+                <input name="inn" value="{{ profile.inn or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">КПП
+                <input name="kpp" value="{{ profile.kpp or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">ОГРН
+                <input name="ogrn" value="{{ profile.ogrn or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">Директор (подписант)
+                <input name="director_name" value="{{ profile.director_name or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="col-span-2 text-xs text-muted">Юридический адрес
+                <input name="legal_address" value="{{ profile.legal_address or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Телефон
+                <input name="phone" value="{{ profile.phone or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Email
+                <input name="email" value="{{ profile.email or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Сайт
+                <input name="site" value="{{ profile.site or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Налоговая заметка (в документах)
+                <input name="tax_note" value="{{ profile.tax_note or '' }}" placeholder="Без НДС / НДС не облагается (УСН)" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="col-span-2 text-xs text-muted">Банк
+                <input name="bank_name" value="{{ profile.bank_name or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Р/с
+                <input name="bank_account" value="{{ profile.bank_account or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">К/с
+                <input name="bank_corr_account" value="{{ profile.bank_corr_account or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">БИК
+                <input name="bank_bic" value="{{ profile.bank_bic or '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <div class="col-span-2 flex justify-end">
+                <button class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить реквизиты</button>
+            </div>
+        </form>
+
+        <h2 class="text-lg font-medium text-ink mt-6 mb-3">Логотип для печатных форм</h2>
+        <div class="bg-white border border-black/10 rounded-2xl p-4 flex items-center gap-4">
+            {% if profile.logo_path %}
+            <img src="/settings/logo" alt="Логотип" class="h-16">
+            {% else %}
+            <div class="h-16 w-28 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-muted">нет</div>
+            {% endif %}
+            <form method="post" action="/settings/company/logo" enctype="multipart/form-data" class="flex items-center gap-2">
+                <input type="file" name="file" accept=".png,.jpg,.jpeg" required class="text-sm file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-100 file:text-sm">
+                <button class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Загрузить</button>
+            </form>
+            <span class="text-xs text-muted">PNG/JPG, до 2 МБ</span>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-lg font-medium text-ink mb-3">Тексты КП</h2>
+        <form method="post" action="/settings/templates/quote" class="bg-white border border-black/10 rounded-2xl p-4">
+            <label class="block text-xs text-muted mb-1">Вступление (до таблицы позиций)</label>
+            <textarea name="intro" rows="2" class="w-full px-3 py-2 rounded-lg border border-black/10 text-sm">{{ tpl.intro or '' }}</textarea>
+            <label class="block text-xs text-muted mb-1 mt-3">Условия (после таблицы)</label>
+            <textarea name="conditions" rows="2" class="w-full px-3 py-2 rounded-lg border border-black/10 text-sm">{{ tpl.conditions or '' }}</textarea>
+            <label class="block text-xs text-muted mb-1 mt-3">Подпись</label>
+            <textarea name="signature" rows="2" class="w-full px-3 py-2 rounded-lg border border-black/10 text-sm">{{ tpl.signature or '' }}</textarea>
+            <div class="flex justify-end mt-3">
+                <button class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить тексты КП</button>
+            </div>
+        </form>
+
+        <div class="bg-white border border-black/10 rounded-2xl p-4 mt-4">
+            <p class="text-sm font-medium text-ink mb-2">Плейсхолдеры — вставляются в текст, при печати заменяются данными КП:</p>
+            <table class="w-full text-xs">
+                {% for token, hint in placeholder_docs.items() %}
+                <tr class="border-b border-black/5">
+                    <td class="py-1.5 pr-3 font-mono text-ink whitespace-nowrap">{{ token }}</td>
+                    <td class="py-1.5 text-muted">{{ hint }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            <p class="text-xs text-muted mt-2">Неизвестные токены остаются как есть — видно в печатной форме, если ошибиться. Переносы строк сохраняются.</p>
+        </div>
+    </section>
+</div>
+{% endblock %}
