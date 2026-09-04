@@ -17,7 +17,12 @@
 {% endmacro %}
 <div class="flex gap-6 h-full">
     <aside class="w-64 shrink-0 overflow-y-auto">
-        <h1 class="text-2xl font-medium mb-4 text-ink">Каталог</h1>
+        <div class="flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-medium text-ink">Каталог</h1>
+            {% if current_user.role.value in ('supervisor', 'admin') %}
+            <a href="/catalog/new" class="px-2 py-1 rounded-lg text-sm bg-ink text-white">+ Товар</a>
+            {% endif %}
+        </div>
         <nav class="space-y-0.5 pb-4">
             <a href="/catalog"
                hx-get="/catalog/products" hx-target="#catalog-products" hx-swap="outerHTML" hx-push-url="/catalog"

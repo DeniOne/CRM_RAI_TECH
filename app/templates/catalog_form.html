@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Правка товара' if product else 'Новый товар' }} — CRM RAI{% endblock %}
+{% block content %}
+<div class="flex items-start justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-medium mb-1 text-ink">{{ 'Правка товара' if product else 'Новый товар' }}</h1>
+        <p class="text-sm text-muted mb-4">Раскладка цены: входящая б/НДС (поставщик) → отпускная б/НДС → НДС → отпускная с НДС (считается сама).</p>
+    </div>
+    {% if product %}
+    <form method="post" action="/catalog/{{ product.id }}/archive"
+          onsubmit="return confirm('{% if product.is_active %}Убрать товар из каталога?{% else %}Вернуть товар в каталог?{% endif %}');">
+        <button name="restore" value="{% if product.is_active %}0{% else %}1{% endif %}"
+                class="px-3 py-2 rounded-lg text-sm bg-white border {% if product.is_active %}border-red-200 text-red-600 hover:bg-red-50{% else %}border-black/10 text-ink hover:bg-slate-50{% endif %}">
+            {% if product.is_active %}В архив{% else %}Вернуть в каталог{% endif %}
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+{% if error %}
+<div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-red-50 text-red-600 border border-red-200">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="{% if product %}/catalog/{{ product.id }}/update{% else %}/catalog/create{% endif %}">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        <section class="bg-white border border-black/10 rounded-2xl p-4 grid grid-cols-2 gap-3">
+            <label class="col-span-2 text-xs text-muted">Название *
+                <input name="name" required value="{{ product.name if product else '' }}"
+                       class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Артикул
+                <input name="sku" value="{{ product.sku if product else '' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono">
+            </label>
+            <label class="text-xs text-muted">Единица
+                <input name="unit" value="{{ product.unit if product else 'шт' }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Категория
+                <select name="category_id" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+                    <option value="">— без категории —</option>
+                    {% for c in categories %}
+                    <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="text-xs text-muted">…или новая категория (создастся)
+                <input name="new_category" placeholder="например: Премиксы" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Бренд / поставщик
+                <input name="brand" value="{{ product.brand if product else '' }}" placeholder="АгроВита, Про-Грипил…" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+            </label>
+            <label class="text-xs text-muted">Происхождение
+                <select name="origin" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">
+                    <option value="resale" {% if product and product.origin == 'resale' %}selected{% endif %}>Перепродажа</option>
+                    <option value="own" {% if product and product.origin == 'own' %}selected{% endif %}>Свой продукт</option>
+                </select>
+            </label>
+            <label class="col-span-2 text-xs text-muted">Описание
+                <textarea name="description" rows="3" class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm">{{ product.description if product else '' }}</textarea>
+            </label>
+            {% if product %}
+            <label class="col-span-2 flex items-center gap-2 text-sm text-ink">
+                <input type="checkbox" name="is_active" {% if product.is_active %}checked{% endif %} class="w-4 h-4">
+                Активен (виден в каталоге и КП)
+            </label>
+            {% endif %}
+        </section>
+
+        <section class="bg-white border border-black/10 rounded-2xl p-4">
+            <h2 class="text-sm font-medium text-ink mb-3">Цены (базовый прайс)</h2>
+            <div class="grid grid-cols-3 gap-3">
+                <label class="text-xs text-muted">Входящая б/НДС
+                    <input name="price_in" inputmode="decimal" value="{{ pp.price_in if pp and pp.price_in is not none else '' }}"
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono text-right">
+                </label>
+                <label class="text-xs text-muted">Отпускная б/НДС
+                    <input name="price_out" id="f-price-out" inputmode="decimal" value="{{ pp.price_out if pp and pp.price_out is not none else '' }}"
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono text-right">
+                </label>
+                <label class="text-xs text-muted">НДС %
+                    <input name="vat_rate" id="f-vat" inputmode="decimal" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '20' }}"
+                           class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono text-right">
+                </label>
+            </div>
+            <p class="text-sm text-muted mt-3">Отпускная с НДС: <span id="f-withvat" class="font-mono text-ink">—</span></p>
+            <p class="text-xs text-muted mt-1">Наценка: <span id="f-margin" class="font-mono">—</span></p>
+        </section>
+    </div>
+
+    <div class="flex items-center justify-end mt-5 gap-2">
+        <a href="/catalog" class="px-3 py-2 rounded-lg text-sm text-muted hover:text-ink">Отмена</a>
+        <button type="submit" class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить</button>
+    </div>
+</form>
+
+<script>
+(function () {
+    function f(id) { return document.getElementById(id); }
+    function recalc() {
+        var out = parseFloat((f('f-price-out').value || '').replace(',', '.'));
+        var vat = parseFloat((f('f-vat').value || '20').replace(',', '.'));
+        if (isNaN(vat)) vat = 20;
+        var cell = f('f-withvat'), margin = f('f-margin');
+        if (isNaN(out)) { cell.textContent = '—'; margin.textContent = '—'; return; }
+        var withVat = out * (1 + vat / 100);
+        cell.textContent = withVat.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+        var inn = parseFloat((document.querySelector('[name="price_in"]').value || '').replace(',', '.'));
+        if (isNaN(inn)) { margin.textContent = '—'; return; }
+        margin.textContent = (withVat / (1 + vat / 100) - inn).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽/ед';
+    }
+    ['f-price-out', 'f-vat'].forEach(function (id) { f(id).addEventListener('input', recalc); });
+    document.querySelector('[name="price_in"]').addEventListener('input', recalc);
+    recalc();
+})();
+</script>
+{% endblock %}
