@@ -398,7 +398,7 @@ class ProductPrice(Base):
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     price_in: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     price_out: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    vat_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=20)
+    vat_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=22)  # РФ: 22% с 01.01.2026
     min_qty: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

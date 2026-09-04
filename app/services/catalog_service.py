@@ -99,7 +99,7 @@ async def upsert_price(session: AsyncSession, product_id: int, price_list_id: in
     if vat_rate is not None:
         pp.vat_rate = vat_rate
     if pp.price_out is not None:
-        pp.price = (Decimal(str(pp.price_out)) * (Decimal("100") + Decimal(str(pp.vat_rate or 20))) / Decimal("100")).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        pp.price = (Decimal(str(pp.price_out)) * (Decimal("100") + Decimal(str(pp.vat_rate or 22))) / Decimal("100")).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
     elif value is not None:
         pp.price = value
     return status

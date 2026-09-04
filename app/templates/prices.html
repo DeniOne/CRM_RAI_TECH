@@ -13,7 +13,11 @@
 {% endmacro %}
 
 <h1 class="text-2xl font-medium mb-1 text-ink">Прайс-лист{% if pricelist %}: {{ pricelist.name }} <span class="text-sm text-muted">({{ pricelist.currency }})</span>{% endif %}</h1>
+{% if is_staff %}
 <p class="text-sm text-muted mb-4">Раскладка цены: <b>входящая без НДС</b> (цена поставщика) → <b>отпускная без НДС</b> → <b>НДС</b> → отпускная с НДС (считается сама, её видят КП и счёт). Пустые поля не трогают сохранённое.</p>
+{% else %}
+<p class="text-sm text-muted mb-4">Отпускные цены: без НДС и с НДС. Ставка НДС с 01.01.2026 — 22%.</p>
+{% endif %}
 
 {% if saved is not none %}
 <div class="mb-4 px-4 py-2.5 rounded-lg text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -38,28 +42,33 @@
                 <input type="search" name="q" value="{{ q }}" placeholder="Поиск…" class="px-3 py-2 rounded-lg border border-black/10 bg-white text-sm w-64 focus:outline-none focus:ring-2 focus:ring-ink/10">
                 <button class="px-3 py-2 rounded-lg text-sm bg-ink text-white">Найти</button>
             </form>
+            {% if is_staff %}
             <form method="post" action="/prices/import" enctype="multipart/form-data" class="flex items-center gap-2 ml-auto"
-                  onsubmit="return confirm('Импортировать цены из xlsx? Товары сопоставляются по ссылке/артикулу.');">
+                  onsubmit="return confirm('Импортировать входящие цены из xlsx? Товары сопоставляются по ссылке/артикулу.');">
                 <input type="file" name="file" accept=".xlsx" required
                        class="text-sm file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-slate-100 file:text-ink file:text-sm">
-                <button class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Импорт цен</button>
+                <button class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Импорт входящих</button>
             </form>
+            {% endif %}
             <a href="/prices/export" class="px-3 py-2 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Экспорт xlsx</a>
         </div>
 
+        {% if is_staff %}
         <form method="post" action="/prices/save">
             <input type="hidden" name="category_id" value="{{ category_id or '' }}">
             <input type="hidden" name="q" value="{{ q }}">
             <input type="hidden" name="page" value="{{ page }}">
+        {% endif %}
+
         <div class="bg-white border border-black/10 rounded-2xl overflow-hidden">
             <table class="w-full text-sm">
                 <thead class="text-muted border-b border-black/10">
                     <tr>
                         <th class="text-left px-4 py-2 font-medium">Товар</th>
                         <th class="text-left px-4 py-2 font-medium">Артикул</th>
-                        <th class="text-right px-4 py-2 font-medium w-36">Входящая б/НДС</th>
+                        {% if is_staff %}<th class="text-right px-4 py-2 font-medium w-36">Входящая б/НДС</th>{% endif %}
                         <th class="text-right px-4 py-2 font-medium w-36">Отпускная б/НДС</th>
-                        <th class="text-right px-4 py-2 font-medium w-20">НДС %</th>
+                        {% if is_staff %}<th class="text-right px-4 py-2 font-medium w-20">НДС %</th>{% endif %}
                         <th class="text-right px-4 py-2 font-medium w-36">Отпускная с НДС</th>
                     </tr>
                 </thead>
@@ -71,9 +80,10 @@
                             <a href="{{ p.source_url }}" target="_blank" rel="noopener" class="text-ink hover:text-blue-600" title="{{ p.source_url or '' }}">{{ p.name }}</a>
                         </td>
                         <td class="px-4 py-2 font-mono text-muted">{{ p.sku or '—' }}</td>
+                        {% if is_staff %}
                         <td class="px-4 py-2 text-right">
                             <input type="text" inputmode="decimal" name="price_in_{{ p.id }}" value="{{ pp.price_in if pp and pp.price_in is not none else '' }}"
-                                   placeholder="—"
+                                   placeholder="—" data-in="{{ p.id }}"
                                    class="w-32 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
                         </td>
                         <td class="px-4 py-2 text-right">
@@ -82,24 +92,30 @@
                                    class="w-32 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
                         </td>
                         <td class="px-4 py-2 text-right">
-                            <input type="text" inputmode="decimal" name="vat_{{ p.id }}" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '20' }}"
+                            <input type="text" inputmode="decimal" name="vat_{{ p.id }}" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '22' }}"
                                    data-vat="{{ p.id }}"
                                    class="w-16 px-2 py-1.5 rounded-lg border border-black/10 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ink/10">
                         </td>
                         <td class="px-4 py-2 text-right font-mono text-sm text-ink" data-withvat="{{ p.id }}">{{ '{:,.2f}'.format(pp.price) | replace(',', ' ') | replace('.', ',') if pp and pp.price else '—' }}</td>
+                        {% else %}
+                        <td class="px-4 py-2 text-right font-mono">{{ '{:,.2f}'.format(pp.price_out) | replace(',', ' ') | replace('.', ',') if pp and pp.price_out else '—' }}</td>
+                        <td class="px-4 py-2 text-right font-mono text-ink">{{ '{:,.2f}'.format(pp.price) | replace(',', ' ') | replace('.', ',') if pp and pp.price else '—' }}</td>
+                        {% endif %}
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-muted">Товары не найдены</td></tr>
+                    <tr><td colspan="{{ 6 if is_staff else 4 }}" class="px-4 py-8 text-center text-muted">Товары не найдены</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-            <div class="flex items-center justify-between mt-3">
-                <p class="text-xs text-muted">Найдено: <span class="font-mono">{{ total }}</span> · страница {{ page }} из {{ pages }}</p>
-                {% if products %}
-                <button class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить цены на странице</button>
-                {% endif %}
-            </div>
+
+        {% if is_staff %}
+        <div class="flex items-center justify-between mt-3">
+            <p class="text-xs text-muted">Найдено: <span class="font-mono">{{ total }}</span> · страница {{ page }} из {{ pages }}</p>
+            {% if products %}
+            <button class="px-4 py-2 rounded-lg text-sm bg-ink text-white">Сохранить цены на странице</button>
+            {% endif %}
+        </div>
         </form>
 
         {% if pages > 1 %}
@@ -108,27 +124,36 @@
             {% if page < pages %}<a href="/prices?{{ base_qs }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вперёд →</a>{% endif %}
         </div>
         {% endif %}
+        <script>
+        // Живой пересчёт «отпускной с НДС» = отпускная б/НДС × (1 + НДС/100)
+        (function () {
+            function recalc(pid) {
+                var out = parseFloat((document.querySelector('[data-out="' + pid + '"]') || {}).value || '');
+                var vat = parseFloat((document.querySelector('[data-vat="' + pid + '"]') || {}).value || '22');
+                var cell = document.querySelector('[data-withvat="' + pid + '"]');
+                if (!cell) return;
+                if (isNaN(out)) { cell.textContent = '—'; return; }
+                if (isNaN(vat)) vat = 22;
+                var v = out * (1 + vat / 100);
+                cell.textContent = v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            document.querySelectorAll('[data-out]').forEach(function (inp) {
+                inp.addEventListener('input', function () { recalc(inp.dataset.out); });
+            });
+            document.querySelectorAll('[data-vat]').forEach(function (inp) {
+                inp.addEventListener('input', function () { recalc(inp.dataset.vat); });
+            });
+        })();
+        </script>
+        {% else %}
+        <p class="text-xs text-muted mt-3">Найдено: <span class="font-mono">{{ total }}</span> · страница {{ page }} из {{ pages }}</p>
+        {% if pages > 1 %}
+        <div class="flex items-center justify-center gap-3 mt-4">
+            {% if page > 1 %}<a href="/prices?{{ base_qs }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">← Назад</a>{% endif %}
+            {% if page < pages %}<a href="/prices?{{ base_qs }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-black/10 text-ink hover:bg-slate-50">Вперёд →</a>{% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
     </section>
 </div>
-<script>
-// Живой пересчёт «отпускной с НДС» = отпускная б/НДС × (1 + НДС/100)
-(function () {
-    function recalc(pid) {
-        var out = parseFloat((document.querySelector('[data-out="' + pid + '"]') || {}).value || '');
-        var vat = parseFloat((document.querySelector('[data-vat="' + pid + '"]') || {}).value || '20');
-        var cell = document.querySelector('[data-withvat="' + pid + '"]');
-        if (!cell) return;
-        if (isNaN(out)) { cell.textContent = '—'; return; }
-        if (isNaN(vat)) vat = 20;
-        var v = out * (1 + vat / 100);
-        cell.textContent = v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    document.querySelectorAll('[data-out]').forEach(function (inp) {
-        inp.addEventListener('input', function () { recalc(inp.dataset.out); });
-    });
-    document.querySelectorAll('[data-vat]').forEach(function (inp) {
-        inp.addEventListener('input', function () { recalc(inp.dataset.vat); });
-    });
-})();
-</script>
 {% endblock %}

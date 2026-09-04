@@ -77,7 +77,7 @@
                            class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono text-right">
                 </label>
                 <label class="text-xs text-muted">НДС %
-                    <input name="vat_rate" id="f-vat" inputmode="decimal" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '20' }}"
+                    <input name="vat_rate" id="f-vat" inputmode="decimal" value="{{ '{:g}'.format(pp.vat_rate) if pp and pp.vat_rate is not none else '22' }}"
                            class="mt-1 w-full px-3 py-2 rounded-lg border border-black/10 text-sm font-mono text-right">
                 </label>
             </div>
@@ -97,7 +97,7 @@
     function f(id) { return document.getElementById(id); }
     function recalc() {
         var out = parseFloat((f('f-price-out').value || '').replace(',', '.'));
-        var vat = parseFloat((f('f-vat').value || '20').replace(',', '.'));
+        var vat = parseFloat((f('f-vat').value || '22').replace(',', '.'));
         if (isNaN(vat)) vat = 20;
         var cell = f('f-withvat'), margin = f('f-margin');
         if (isNaN(out)) { cell.textContent = '—'; margin.textContent = '—'; return; }

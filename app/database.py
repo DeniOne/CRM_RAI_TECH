@@ -118,7 +118,7 @@ async def init_db():
     new_price_columns = [
         ("price_in", "FLOAT"),
         ("price_out", "FLOAT"),
-        ("vat_rate", "FLOAT DEFAULT 20"),
+        ("vat_rate", "FLOAT DEFAULT 22"),
     ]
     async with async_engine.begin() as conn:
         existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(product_prices)"))
@@ -128,6 +128,12 @@ async def init_db():
                 await conn.execute(
                     sqlalchemy_text(f"ALTER TABLE product_prices ADD COLUMN {col_name} {col_type}")
                 )
+        # Ставка НДС 22% в РФ с 01.01.2026 — старые дефолты 20% поднимаем до 22
+        # (ставки, выставленные вручную и не равные 20, не трогаем)
+        if "vat_rate" in existing_cols:
+            await conn.execute(
+                sqlalchemy_text("UPDATE product_prices SET vat_rate = 22 WHERE vat_rate = 20")
+            )
     new_quote_item_columns = [
         ("price_in", "FLOAT"),
         ("vat_rate", "FLOAT"),
@@ -140,6 +146,10 @@ async def init_db():
                 await conn.execute(
                     sqlalchemy_text(f"ALTER TABLE quote_items ADD COLUMN {col_name} {col_type}")
                 )
+        if "vat_rate" in existing_cols:
+            await conn.execute(
+                sqlalchemy_text("UPDATE quote_items SET vat_rate = 22 WHERE vat_rate = 20")
+            )
 
     # Create default admin
     async with async_session_maker() as session:

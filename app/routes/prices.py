@@ -25,7 +25,9 @@ router = APIRouter(prefix="/prices", tags=["prices"])
 PER_PAGE = 100
 
 
-async def _guard(request: Request, session: AsyncSession):
+async def _staff_guard(request: Request, session: AsyncSession):
+    """Изменение цен — supervisor/admin. Менеджерам входящая цена не видна
+    (решение владельца 2026-09-04), на просмотр отпускных пускаем всех."""
     user = await get_current_user(request, session)
     if not user:
         raise HTTPException(status_code=401)
@@ -111,12 +113,20 @@ async def prices_page(
 ):
     from app.main import templates
 
-    user = await _guard(request, session)
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
     ctx = await _prices_page_context(
         session, q, int(category_id) if category_id and category_id.isdigit() else None,
         _parse_page(page),
     )
-    ctx.update({"current_user": user, "saved": saved, "skipped": skipped})
+    is_staff = user.role.value in ("supervisor", "admin")
+    if not is_staff:
+        # менеджеру входящая цена не отдаётся даже в контексте шаблона
+        ctx["prices"] = {
+            pid: {"price_out": pp.price_out, "price": pp.price} for pid, pp in ctx["prices"].items()
+        }
+    ctx.update({"current_user": user, "saved": saved, "skipped": skipped, "is_staff": is_staff})
     return templates.TemplateResponse(request=request, name="prices.html", context=ctx)
 
 
@@ -128,7 +138,7 @@ async def prices_save(
     page: str = None,
     session: AsyncSession = Depends(get_session),
 ):
-    await _guard(request, session)
+    await _staff_guard(request, session)
     pricelist = await cs.get_or_create_default_pricelist(session)
 
     form = await request.form()
@@ -167,7 +177,7 @@ async def prices_import(
     file: UploadFile = None,
     session: AsyncSession = Depends(get_session),
 ):
-    await _guard(request, session)
+    await _staff_guard(request, session)
     if file is None or not file.filename:
         raise HTTPException(status_code=400, detail="Файл не передан")
     try:
