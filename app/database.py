@@ -35,6 +35,7 @@ async def init_db():
         Document, DocumentTemplate, Invite, LibraryFolder, LibraryFile,
         ProductCategory, Product, PriceList, ProductPrice,
         SequenceCounter, Quote, QuoteItem, CompanyProfile, PrintTemplate,
+        Tag, lead_tags, LeadDirection,
     )
 
     # WAL mode для concurrent reads/writes — уменьшает "database is locked"
@@ -150,6 +151,29 @@ async def init_db():
             await conn.execute(
                 sqlalchemy_text("UPDATE quote_items SET vat_rate = 22 WHERE vat_rate = 20")
             )
+
+    # Миграция (фаза 23): многопрофильная карточка лида — новые поля leads.
+    new_lead_profile_columns = [
+        ("parent_lead_id", "INTEGER REFERENCES leads(id)"),
+        ("company_type", "VARCHAR(20)"),
+        ("purchase_type", "VARCHAR(20)"),
+        ("qualification_status", "VARCHAR(20) DEFAULT 'none'"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(leads)"))
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_lead_profile_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
+                )
+        # Перенос старого чекбокса рапса в статус квалификации (идемпотентно)
+        await conn.execute(
+            sqlalchemy_text(
+                "UPDATE leads SET qualification_status = 'confirmed' "
+                "WHERE rapeseed_verified = 1 AND qualification_status = 'none'"
+            )
+        )
 
     # Create default admin
     async with async_session_maker() as session:

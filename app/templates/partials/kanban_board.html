@@ -14,6 +14,13 @@
                 {% if lead.priority %}<span>П{{ lead.priority }}</span>{% endif %}
             </div>
             <div class="text-xs text-muted mt-1 truncate">{{ lead.region.name if lead.region else '—' }}</div>
+            {% if lead.tags %}
+            <div class="flex flex-wrap gap-1 mt-1">
+                {% for t in lead.tags[:3] %}
+                <span class="bg-slate-100 text-muted px-1.5 rounded-lg text-[10px]">#{{ t.name[:18] }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% if lead.assigned_manager %}
             <div class="text-xs text-muted mt-1">{{ lead.assigned_manager.full_name }}</div>
             {% endif %}

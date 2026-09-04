@@ -1,0 +1,28 @@
+{# Теги лида (фаза 23): чипы + добавление с автодополнением по справочнику.
+   HTMX-таргет сам на себя: ответы эндпоинтов возвращают этот же партиал. #}
+<div id="lead-tags-block">
+    <div class="flex flex-wrap gap-1.5 items-center">
+        {% for t in lead.tags %}
+        <span class="inline-flex items-center gap-1 bg-slate-100 text-ink px-2 py-0.5 rounded-lg text-xs">
+            #{{ t.name }}
+            <form hx-post="/leads/{{ lead.id }}/tags/{{ t.id }}/remove" hx-target="#lead-tags-block" hx-swap="outerHTML"
+                  class="inline" style="margin:0">
+                <button type="submit" class="text-muted hover:text-red-500 leading-none" title="Убрать тег">×</button>
+            </form>
+        </span>
+        {% else %}
+        <span class="text-xs text-muted">тегов пока нет — добавьте #рапс, #премиксы, #оборудование…</span>
+        {% endfor %}
+    </div>
+    {% if tag_error %}<p class="text-xs text-red-500 mt-1">{{ tag_error }}</p>{% endif %}
+    <form hx-post="/leads/{{ lead.id }}/tags/add" hx-target="#lead-tags-block" hx-swap="outerHTML"
+          class="flex gap-2 mt-2" style="margin-bottom:0">
+        <input type="text" name="name" list="tags-datalist" placeholder="Добавить тег… (#необязательно)"
+               autocomplete="off" maxlength="64"
+               class="flex-1 border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/10">
+        <datalist id="tags-datalist">
+            {% for t in all_tags %}<option value="{{ t.name }}">#{{ t.name }}</option>{% endfor %}
+        </datalist>
+        <button type="submit" class="px-3 py-1.5 rounded-lg text-sm bg-ink text-white">+</button>
+    </form>
+</div>

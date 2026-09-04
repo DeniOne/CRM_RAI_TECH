@@ -1,0 +1,73 @@
+{# Направления работы с клиентом (фаза 23): таблица + добавление.
+   HTMX-таргет сам на себя; строки редактируются инлайн-формами. #}
+<div id="lead-directions-block" class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-muted border-b border-black/10">
+            <tr>
+                <th class="text-left py-1.5 pr-2 font-medium">Направление</th>
+                <th class="text-left py-1.5 pr-2 font-medium">Статус</th>
+                <th class="text-left py-1.5 pr-2 font-medium">Потенциал / объём</th>
+                <th class="text-left py-1.5 pr-2 font-medium">Сезон / тайминг</th>
+                <th class="text-left py-1.5 pr-2 font-medium">Менеджер</th>
+                <th class="w-16"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in lead.directions %}
+            <tr class="border-b border-black/5 align-top">
+                <td class="py-1.5 pr-2">
+                    <form hx-post="/leads/{{ lead.id }}/directions/{{ d.id }}/update" hx-target="#lead-directions-block" hx-swap="outerHTML">
+                        <div class="flex flex-col gap-1">
+                            <div class="flex gap-1">
+                                <input name="name" value="{{ d.name }}" maxlength="128" class="w-40 border border-black/10 rounded-lg px-2 py-1 text-sm text-ink">
+                                <select name="status" class="border border-black/10 rounded-lg px-1.5 py-1 text-xs bg-white">
+                                    {% for s, lbl in direction_status_labels.items() %}
+                                    <option value="{{ s }}" {% if d.status == s %}selected{% endif %}>{{ lbl }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="flex gap-1">
+                                <input name="potential" value="{{ d.potential or '' }}" placeholder="объём" maxlength="100" class="w-24 border border-black/10 rounded-lg px-2 py-1 text-xs text-ink">
+                                <input name="season" value="{{ d.season or '' }}" placeholder="сезон" maxlength="100" class="w-24 border border-black/10 rounded-lg px-2 py-1 text-xs text-ink">
+                                <select name="manager_id" class="border border-black/10 rounded-lg px-1.5 py-1 text-xs bg-white">
+                                    <option value="">—</option>
+                                    {% for u in users %}
+                                    <option value="{{ u.id }}" {% if d.manager_id == u.id %}selected{% endif %}>{{ u.full_name.split()[0] }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input name="note" value="{{ d.note or '' }}" placeholder="заметка" class="flex-1 min-w-24 border border-black/10 rounded-lg px-2 py-1 text-xs text-ink">
+                                <button type="submit" class="px-2 py-1 rounded-lg text-xs bg-ink text-white" title="Сохранить строку">✓</button>
+                            </div>
+                        </div>
+                    </form>
+                </td>
+                <td class="py-1.5 pr-2">
+                    {% set chip = {'interest': 'bg-slate-100 text-muted', 'offered': 'bg-blue-50 text-blue-600', 'confirmed': 'bg-emerald-50 text-emerald-600', 'rejected': 'bg-red-50 text-red-600'} %}
+                    <span class="px-2 py-0.5 rounded-lg text-xs {{ chip.get(d.status, 'bg-slate-100') }}">{{ direction_status_labels.get(d.status, d.status) }}</span>
+                </td>
+                <td class="py-1.5 pr-2 text-muted">{{ d.potential or '—' }}</td>
+                <td class="py-1.5 pr-2 text-muted">{{ d.season or '—' }}</td>
+                <td class="py-1.5 pr-2 text-muted">{{ d.manager.full_name if d.manager else '—' }}</td>
+                <td class="py-1.5 text-right">
+                    <form hx-post="/leads/{{ lead.id }}/directions/{{ d.id }}/delete" hx-target="#lead-directions-block" hx-swap="outerHTML"
+                          hx-confirm="Удалить направление «{{ d.name }}»?">
+                        <button type="submit" class="text-red-400 hover:text-red-600 text-lg leading-none" title="Удалить">×</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="py-3 text-center text-muted text-sm">Направлений нет — добавьте первое (рапс, премиксы, оборудование…)</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <form hx-post="/leads/{{ lead.id }}/directions/add" hx-target="#lead-directions-block" hx-swap="outerHTML"
+          class="flex gap-1 mt-2 flex-wrap">
+        <input name="name" placeholder="Направление (рапс, премиксы…)" required maxlength="128" class="w-48 border border-black/10 rounded-lg px-2 py-1 text-sm text-ink">
+        <select name="status" class="border border-black/10 rounded-lg px-1.5 py-1 text-xs bg-white">
+            {% for s, lbl in direction_status_labels.items() %}<option value="{{ s }}">{{ lbl }}</option>{% endfor %}
+        </select>
+        <input name="potential" placeholder="объём" maxlength="100" class="w-24 border border-black/10 rounded-lg px-2 py-1 text-xs text-ink">
+        <input name="season" placeholder="сезон" maxlength="100" class="w-24 border border-black/10 rounded-lg px-2 py-1 text-xs text-ink">
+        <button type="submit" class="px-3 py-1 rounded-lg text-xs bg-ink text-white">+ Добавить</button>
+    </form>
+</div>

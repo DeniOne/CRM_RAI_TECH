@@ -2,7 +2,7 @@ import enum
 from datetime import datetime, date
 from typing import Optional, List
 
-from sqlalchemy import String, Text, Boolean, Float, Integer, Numeric, ForeignKey, UniqueConstraint, func, Enum as SAEnum
+from sqlalchemy import String, Text, Boolean, Float, Integer, Numeric, ForeignKey, UniqueConstraint, Table, Column, func, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -12,6 +12,75 @@ class UserRole(str, enum.Enum):
     manager = "manager"
     supervisor = "supervisor"
     admin = "admin"
+
+
+# Теги лида (многопрофильность v2.0): свободные метки вместо жёстких
+# рапсовых полей — #рапс, #премиксы, #оборудование и т.д.; поиск и фильтры.
+lead_tags = Table(
+    "lead_tags",
+    Base.metadata,
+    Column("lead_id", ForeignKey("leads.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Tag(Base):
+    """Тег. Имя уникально без учёта регистра на уровне сервиса (u_lower-поиск)."""
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    leads: Mapped[List["Lead"]] = relationship(
+        secondary=lead_tags, back_populates="tags", viewonly=True
+    )
+
+
+# Подписи для UI/шаблонов (фаза 23: многопрофильная карточка лида)
+COMPANY_TYPE_LABELS = {
+    "holding": "Холдинг",
+    "farm": "Хозяйство",
+    "dealer": "Дилер",
+    "processor": "Переработчик",
+}
+PURCHASE_TYPE_LABELS = {
+    "centralized": "Централизованные",
+    "local": "Локальные",
+    "mixed": "Смешанные",
+}
+QUALIFICATION_LABELS = {
+    "none": "Не квалифицирован",
+    "in_progress": "В процессе",
+    "confirmed": "Подтверждён",
+    "rejected": "Отказ",
+}
+DIRECTION_STATUS_LABELS = {
+    "interest": "Интерес",
+    "offered": "Предложено",
+    "confirmed": "Подтверждён",
+    "rejected": "Отказ",
+}
+
+
+class LeadDirection(Base):
+    """Направление работы с клиентом (бизнес-линия): рапс, премиксы, оборудование…
+    Многопрофильная замена рапсовых полей (фаза 23)."""
+    __tablename__ = "lead_directions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    # interest/offered/confirmed/rejected (DIRECTION_STATUS_LABELS)
+    status: Mapped[str] = mapped_column(String(20), default="interest")
+    potential: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # объём/масштаб
+    season: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)    # сезон/тайминг
+    manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    lead: Mapped["Lead"] = relationship(back_populates="directions")
+    manager: Mapped[Optional["User"]] = relationship()
 
 
 class InvitePurpose(str, enum.Enum):
@@ -50,6 +119,14 @@ class Lead(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     region_id: Mapped[Optional[int]] = mapped_column(ForeignKey("regions.id"), nullable=True)
     assigned_manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # Головная компания холдинга (ссылка на другой лид) — фаза 23
+    parent_lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leads.id"), nullable=True)
+    # Тип контрагента: holding/farm/dealer/processor (см. COMPANY_TYPE_LABELS)
+    company_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Закупки: centralized/local/mixed
+    purchase_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Квалификация (фаза 23, замена рапсового чекбокса): none/in_progress/confirmed/rejected
+    qualification_status: Mapped[str] = mapped_column(String(20), default="none")
 
     # Company info
     name: Mapped[str] = mapped_column(String(500), index=True)
@@ -95,6 +172,15 @@ class Lead(Base):
     # Relationships
     region: Mapped[Optional["Region"]] = relationship(back_populates="leads")
     assigned_manager: Mapped[Optional["User"]] = relationship()
+    tags: Mapped[List["Tag"]] = relationship(
+        secondary=lead_tags, lazy="selectin", order_by="Tag.name"
+    )
+    directions: Mapped[List["LeadDirection"]] = relationship(
+        back_populates="lead", cascade="all, delete-orphan", order_by="LeadDirection.id"
+    )
+    parent_lead: Mapped[Optional["Lead"]] = relationship(
+        remote_side="Lead.id", foreign_keys=[parent_lead_id]
+    )
     contacts: Mapped[List["Contact"]] = relationship(back_populates="lead", cascade="all, delete-orphan")
     contact_logs: Mapped[List["ContactLog"]] = relationship(back_populates="lead", cascade="all, delete-orphan")
     comments: Mapped[List["Comment"]] = relationship(back_populates="lead", cascade="all, delete-orphan")

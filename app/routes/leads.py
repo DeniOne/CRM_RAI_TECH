@@ -5,13 +5,17 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
-from sqlalchemy import select, or_, delete
+from sqlalchemy import select, or_, delete, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_session
-from app.models import Quote, Lead, Contact, ContactLog, Comment, Task, User, Region, StageHistory, AgentMessage
+from app.models import (Quote, Lead, Contact, ContactLog, Comment, Task, User, Region,
+                       StageHistory, AgentMessage, Tag, LeadDirection, lead_tags,
+                       COMPANY_TYPE_LABELS, PURCHASE_TYPE_LABELS, QUALIFICATION_LABELS,
+                       DIRECTION_STATUS_LABELS)
+from app.services import tags_service
 from app.services.funnel_service import (
     STAGES, STAGE_LABELS, STAGE_COLORS, change_stage, validate_transition
 )
@@ -48,7 +52,7 @@ async def _regions_for_user(session: AsyncSession, user) -> list[Region]:
     return regions
 
 
-def build_kanban_query(region, level, priority, manager, assigned_manager, q=None) -> str:
+def build_kanban_query(region, level, priority, manager, assigned_manager, q=None, tag=None) -> str:
     """Готовит query-строку фильтров канбана для ссылок (вида '?region=3&level=A'
     или '', если фильтров нет). Единое место построения."""
     params = []
@@ -64,6 +68,8 @@ def build_kanban_query(region, level, priority, manager, assigned_manager, q=Non
         params.append(f"assigned_manager={assigned_manager}")
     if q:
         params.append(f"q={q}")
+    if tag:
+        params.append(f"tag={tag}")
     return ("?" + "&".join(params)) if params else ""
 
 
@@ -76,6 +82,7 @@ async def kanban(
     priority: str = None,
     assigned_manager: str = None,
     q: str = None,
+    tag: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -89,11 +96,12 @@ async def kanban(
     # level: однобуквенный A/B/C или пусто
     level = level.strip() if level else None
     q = (q or "").strip() or None
+    tag = (tag or "").strip().lstrip("#").strip() or None
 
     if manager is None:
         manager = "my" if user.role.value == "manager" else "all"
 
-    kanban_query = build_kanban_query(region, level, priority, manager, assigned_manager, q)
+    kanban_query = build_kanban_query(region, level, priority, manager, assigned_manager, q, tag)
 
     if manager == "my" and user.role.value == "manager":
         base_filter = Lead.assigned_manager_id == user.id
@@ -118,13 +126,43 @@ async def kanban(
             filters.append(Lead.assigned_manager_id == int(assigned_manager))
 
     if q:
+        like = f"%{q.lower()}%"
+        # фаза 23: поиск также по досье, тегам и комментариям журнала
+        # (u_lower — SQLite LIKE не фолдит кириллицу)
+        tag_match = exists(
+            select(1).where(
+                lead_tags.c.lead_id == Lead.id,
+                Tag.id == lead_tags.c.tag_id,
+                func.u_lower(Tag.name).like(like),
+            )
+        )
+        comment_match = exists(
+            select(1).where(
+                Comment.lead_id == Lead.id,
+                func.u_lower(Comment.body).like(like),
+            )
+        )
         filters.append(
             or_(
-                Lead.name.ilike(f"%{q}%"),
+                func.u_lower(Lead.name).like(like),
                 Lead.inn.ilike(f"%{q}%"),
-                Lead.head_name.ilike(f"%{q}%"),
+                func.u_lower(Lead.head_name).like(like),
                 Lead.site.ilike(f"%{q}%"),
-                Lead.settlement.ilike(f"%{q}%"),
+                func.u_lower(Lead.settlement).like(like),
+                func.u_lower(Lead.general_comment).like(like),
+                tag_match,
+                comment_match,
+            )
+        )
+
+    if tag:
+        filters.append(
+            exists(
+                select(1).where(
+                    lead_tags.c.lead_id == Lead.id,
+                    Tag.id == lead_tags.c.tag_id,
+                    func.u_lower(Tag.name) == tag.lower(),
+                )
             )
         )
 
@@ -164,6 +202,7 @@ async def kanban(
             context={"stages": stages_data, "kanban_query": kanban_query},
         )
 
+    all_tags = await tags_service.all_tags(session)
     return templates.TemplateResponse(
         request=request,
         name="kanban.html",
@@ -179,6 +218,8 @@ async def kanban(
             "region_id": region,
             "assigned_manager_id": assigned_manager,
             "q": q,
+            "tag": tag,
+            "all_tags": all_tags,
             "kanban_query": kanban_query,
         },
     )
@@ -339,6 +380,7 @@ async def lead_card(
     manager: str = None,
     assigned_manager: str = None,
     q: str = None,
+    tag: str = None,
     session: AsyncSession = Depends(get_session),
 ):
     from app.main import templates
@@ -347,7 +389,7 @@ async def lead_card(
     region_n = int(region) if region and str(region).isdigit() else None
     priority_n = int(priority) if priority and str(priority).isdigit() else None
     level_n = level.strip() if level else None
-    kanban_query = build_kanban_query(region_n, level_n, priority_n, manager, assigned_manager, q)
+    kanban_query = build_kanban_query(region_n, level_n, priority_n, manager, assigned_manager, q, tag)
 
     result = await session.execute(
         select(Lead).where(Lead.id == lead_id).options(
@@ -360,6 +402,8 @@ async def lead_card(
             selectinload(Lead.region),
             selectinload(Lead.documents),
             selectinload(Lead.deals),
+            selectinload(Lead.directions).selectinload(LeadDirection.manager),
+            selectinload(Lead.parent_lead),
         )
     )
     lead = result.scalar_one_or_none()
@@ -381,6 +425,18 @@ async def lead_card(
 
     entries = _build_journal_entries(lead)
 
+    # фаза 23: теги-справочник, лиды для селекта головной компании, активность
+    all_tags = await tags_service.all_tags(session)
+    parent_candidates = (
+        await session.execute(select(Lead.id, Lead.name).where(Lead.id != lead.id).order_by(Lead.name))
+    ).all()
+    open_tasks = sorted(
+        [t for t in lead.tasks if t.status == "pending" and t.due_date],
+        key=lambda t: t.due_date,
+    )
+    next_task = open_tasks[0] if open_tasks else None
+    last_activity = entries[0] if entries else None
+
     return templates.TemplateResponse(
         request=request,
         name="lead_card.html",
@@ -393,6 +449,14 @@ async def lead_card(
             "regions": regions,
             "entries": entries,
             "quotes": quotes,
+            "all_tags": all_tags,
+            "parent_candidates": parent_candidates,
+            "next_task": next_task,
+            "last_activity": last_activity,
+            "company_type_labels": COMPANY_TYPE_LABELS,
+            "purchase_type_labels": PURCHASE_TYPE_LABELS,
+            "qualification_labels": QUALIFICATION_LABELS,
+            "direction_status_labels": DIRECTION_STATUS_LABELS,
             "kanban_query": kanban_query,
         },
     )
@@ -446,17 +510,16 @@ async def lead_edit(
     request: Request,
     lead_id: int,
     session: AsyncSession = Depends(get_session),
-    rapeseed_verified: bool = Form(False),
-    rapeseed_volume: str = Form(""),
-    harvest_timing: str = Form(""),
     level: str = Form(""),
     priority: int = Form(None),
     inn: str = Form(""),
     head_name: str = Form(""),
     site: str = Form(""),
     general_comment: str = Form(""),
-    done_summary: str = Form(""),
-    todo_summary: str = Form(""),
+    company_type: str = Form(""),
+    purchase_type: str = Form(""),
+    qualification_status: str = Form("none"),
+    parent_lead_id: str = Form(""),
     loss_reason: str = Form(""),
 ):
     from app.main import templates
@@ -469,32 +532,51 @@ async def lead_edit(
             selectinload(Lead.comments),
             selectinload(Lead.tasks),
             selectinload(Lead.region),
+            selectinload(Lead.directions).selectinload(LeadDirection.manager),
+            selectinload(Lead.parent_lead),
         )
     )
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404)
 
-    lead.rapeseed_verified = rapeseed_verified
-    lead.rapeseed_volume = rapeseed_volume or None
-    lead.harvest_timing = harvest_timing or None
     lead.level = level if level in ("A", "B", "C") else None
     lead.priority = priority
     lead.inn = inn or None
     lead.head_name = head_name or None
     lead.site = site or None
     lead.general_comment = general_comment or None
-    lead.done_summary = done_summary or None
-    lead.todo_summary = todo_summary or None
+    lead.company_type = company_type if company_type in ("holding", "farm", "dealer", "processor") else None
+    lead.purchase_type = purchase_type if purchase_type in ("centralized", "local", "mixed") else None
+    lead.qualification_status = qualification_status if qualification_status in ("none", "in_progress", "confirmed", "rejected") else "none"
+    lead.parent_lead_id = int(parent_lead_id) if parent_lead_id and parent_lead_id.isdigit() and int(parent_lead_id) != lead.id else None
     if lead.stage == "lost":
         lead.loss_reason = loss_reason or None
 
-    await session.commit()
+    # фаза 23: #хэштэги из досье автоматически становятся тегами лида
+    for tag_name in tags_service.extract_hashtags(general_comment):
+        await tags_service.add_tag_to_lead(session, lead, tag_name)
 
+    await session.commit()
+    from app.models import (COMPANY_TYPE_LABELS as _CT, PURCHASE_TYPE_LABELS as _PT,
+                            QUALIFICATION_LABELS as _QL, DIRECTION_STATUS_LABELS as _DS)
+    all_tags = await tags_service.all_tags(session)
+    parent_candidates = (
+        await session.execute(select(Lead.id, Lead.name).where(Lead.id != lead.id).order_by(Lead.name))
+    ).all()
+    open_tasks = sorted(
+        [t for t in lead.tasks if t.status == "pending" and t.due_date],
+        key=lambda t: t.due_date,
+    )
     return templates.TemplateResponse(
         request=request,
         name="partials/lead_info_form.html",
-        context={"current_user": user, "lead": lead},
+        context={"current_user": user, "lead": lead,
+                 "all_tags": all_tags, "parent_candidates": parent_candidates,
+                 "next_task": open_tasks[0] if open_tasks else None,
+                 "last_activity": None,
+                 "company_type_labels": _CT, "purchase_type_labels": _PT,
+                 "qualification_labels": _QL, "direction_status_labels": _DS},
     )
 
 
@@ -750,6 +832,12 @@ async def add_comment(
         body=body,
     )
     session.add(comment)
+    await session.flush()
+
+    # фаза 23: #хэштэги комментария автоматически становятся тегами лида
+    lead = await session.get(Lead, lead_id)
+    for tag_name in tags_service.extract_hashtags(body):
+        await tags_service.add_tag_to_lead(session, lead, tag_name)
     await session.commit()
 
     return templates.TemplateResponse(
@@ -1217,6 +1305,174 @@ def _clean_dadata_query(raw: str) -> str:
     q = re.sub(r'\s+', ' ', q).strip()
 
     return q
+
+
+# ===========================================================================
+# Теги и направления (фаза 23: многопрофильная карточка лида)
+# ===========================================================================
+
+async def _lead_for_edit(session: AsyncSession, lead_id: int) -> Lead:
+    result = await session.execute(
+        select(Lead).where(Lead.id == lead_id).options(
+            selectinload(Lead.directions).selectinload(LeadDirection.manager),
+            selectinload(Lead.tasks),
+            selectinload(Lead.contact_logs),
+            selectinload(Lead.comments),
+            selectinload(Lead.region),
+            selectinload(Lead.contacts),
+        )
+    )
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Лид не найден")
+    return lead
+
+
+@router.post("/leads/{lead_id}/tags/add", response_class=HTMLResponse)
+async def lead_tag_add(
+    request: Request,
+    lead_id: int,
+    name: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+    lead = await _lead_for_edit(session, lead_id)
+    tag = await tags_service.add_tag_to_lead(session, lead, name)
+    if tag is None:
+        await session.rollback()
+        from app.main import templates
+        return templates.TemplateResponse(
+            request=request, name="partials/lead_tags_block.html",
+            context={"lead": await _lead_for_edit(session, lead_id), "tag_error": "Тег: 2–64 символа (буквы, цифры, пробел, дефис)"},
+        )
+    await session.commit()
+    from app.main import templates
+    return templates.TemplateResponse(
+        request=request, name="partials/lead_tags_block.html",
+        context={"lead": lead, "tag_error": None},
+    )
+
+
+@router.post("/leads/{lead_id}/tags/{tag_id}/remove", response_class=HTMLResponse)
+async def lead_tag_remove(
+    request: Request,
+    lead_id: int,
+    tag_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+    lead = await _lead_for_edit(session, lead_id)
+    await tags_service.remove_tag_from_lead(session, lead, tag_id)
+    await session.commit()
+    from app.main import templates
+    return templates.TemplateResponse(
+        request=request, name="partials/lead_tags_block.html",
+        context={"lead": lead, "tag_error": None},
+    )
+
+
+def _direction_from_form(form, lead: Lead) -> LeadDirection:
+    status = form.get("status") if form.get("status") in DIRECTION_STATUS_LABELS else "interest"
+    manager_raw = form.get("manager_id") or ""
+    return LeadDirection(
+        lead_id=lead.id,
+        name=(form.get("name") or "").strip()[:128] or "Направление",
+        status=status,
+        potential=(form.get("potential") or "").strip()[:100] or None,
+        season=(form.get("season") or "").strip()[:100] or None,
+        manager_id=int(manager_raw) if manager_raw.isdigit() else None,
+        note=(form.get("note") or "").strip() or None,
+    )
+
+
+@router.post("/leads/{lead_id}/directions/add", response_class=HTMLResponse)
+async def lead_direction_add(
+    request: Request,
+    lead_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+    lead = await _lead_for_edit(session, lead_id)
+    form = await request.form()
+    direction = _direction_from_form(form, lead)
+    if not (form.get("name") or "").strip():
+        direction.name = "Направление"
+    # append в загруженную коллекцию (не session.add): объект остаётся в
+    # lead.directions и попадает в ответ без ре-фетча (identity-map отдаёт сталь)
+    lead.directions.append(direction)
+    await session.flush()
+    await session.commit()
+    from app.main import templates
+    return templates.TemplateResponse(
+        request=request, name="partials/lead_directions_block.html",
+        context={"lead": lead,
+                 "users": (await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))).scalars().all(),
+                 "direction_status_labels": DIRECTION_STATUS_LABELS},
+    )
+
+
+@router.post("/leads/{lead_id}/directions/{direction_id}/update", response_class=HTMLResponse)
+async def lead_direction_update(
+    request: Request,
+    lead_id: int,
+    direction_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+    lead = await _lead_for_edit(session, lead_id)
+    direction = next((d for d in lead.directions if d.id == direction_id), None)
+    if direction is None:
+        raise HTTPException(status_code=404, detail="Направление не найдено")
+    form = await request.form()
+    status = form.get("status") if form.get("status") in DIRECTION_STATUS_LABELS else direction.status
+    manager_raw = form.get("manager_id") or ""
+    direction.name = (form.get("name") or direction.name).strip()[:128]
+    direction.status = status
+    direction.potential = (form.get("potential") or "").strip()[:100] or None
+    direction.season = (form.get("season") or "").strip()[:100] or None
+    direction.manager_id = int(manager_raw) if manager_raw.isdigit() else None
+    direction.note = (form.get("note") or "").strip() or None
+    await session.commit()
+    from app.main import templates
+    return templates.TemplateResponse(
+        request=request, name="partials/lead_directions_block.html",
+        context={"lead": lead,
+                 "users": (await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))).scalars().all(),
+                 "direction_status_labels": DIRECTION_STATUS_LABELS},
+    )
+
+
+@router.post("/leads/{lead_id}/directions/{direction_id}/delete", response_class=HTMLResponse)
+async def lead_direction_delete(
+    request: Request,
+    lead_id: int,
+    direction_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await get_current_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401)
+    lead = await _lead_for_edit(session, lead_id)
+    direction = next((d for d in lead.directions if d.id == direction_id), None)
+    if direction:
+        lead.directions.remove(direction)
+        await session.delete(direction)
+        await session.commit()
+    from app.main import templates
+    return templates.TemplateResponse(
+        request=request, name="partials/lead_directions_block.html",
+        context={"lead": lead,
+                 "users": (await session.execute(select(User).where(User.is_active == True).order_by(User.full_name))).scalars().all(),
+                 "direction_status_labels": DIRECTION_STATUS_LABELS},
+    )
 
 
 @router.get("/api/leads/{lead_id}/dadata/search")

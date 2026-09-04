@@ -56,8 +56,8 @@ def validate_transition(lead: Lead, from_stage: str, to_stage: str) -> tuple[boo
         has_dm = any(c.is_decision_maker for c in lead.contacts)
         if not has_dm:
             errors.append("Отметьте ЛПР среди контактов")
-        if not lead.rapeseed_verified:
-            errors.append("Подтвердите выращивание рапса")
+        if lead.qualification_status != "confirmed":
+            errors.append("Подтвердите квалификацию (статус «Подтверждён»)")
         if errors:
             return False, errors
         return True, []

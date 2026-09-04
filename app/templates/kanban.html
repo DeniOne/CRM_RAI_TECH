@@ -28,7 +28,7 @@
       hx-trigger="change, keyup changed delay:400ms from:find input[name='q']"
       hx-include="this" hx-push-url="true">
     <input type="search" name="q" value="{{ q or '' }}"
-           placeholder="Поиск: название, ИНН, руководитель, сайт, город"
+           placeholder="Поиск: название, ИНН, руководитель, сайт, досье, #тег"
            autocomplete="off"
            class="border border-black/10 rounded-md px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
     <select name="region"
@@ -50,6 +50,13 @@
         <option value="">Все приоритеты</option>
         {% for p in [1, 2, 3] %}
         <option value="{{ p }}" {% if priority == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+    </select>
+    <select name="tag"
+        class="border border-black/10 rounded-lg px-3 py-1.5 text-sm text-ink bg-white">
+        <option value="">Все теги</option>
+        {% for t in all_tags %}
+        <option value="{{ t.name }}" {% if tag == t.name %}selected{% endif %}>#{{ t.name }}</option>
         {% endfor %}
     </select>
     {% if current_user.role.value in ('supervisor', 'admin') %}

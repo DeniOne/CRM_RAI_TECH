@@ -1,60 +1,111 @@
 <div class="bg-white border border-black/10 rounded-2xl p-6">
-    <h2 class="text-lg font-medium mb-4 text-ink flex items-center gap-1">
-        Рапс и квалификация
-        <span class="tooltip-trigger text-muted text-sm">ⓘ
-            <span class="tooltip-content">Верификация рапса подтверждает, что клиент выращивает рапс. Необходима для перехода на стадию «Квалифицирован».</span>
-        </span>
-    </h2>
+    <h2 class="text-lg font-medium mb-4 text-ink">Профиль клиента</h2>
     <div id="lead-info-container">
-        <div class="view-mode space-y-3">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <div class="text-xs text-muted">ИНН</div>
-                    <div class="text-sm font-mono text-ink">{{ lead.inn or '—' }}</div>
+        <div class="view-mode space-y-5">
+
+            {# 1. Компания #}
+            <section>
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Компания</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <div class="text-xs text-muted">Тип</div>
+                        <div class="text-sm text-ink">{{ company_type_labels.get(lead.company_type, '—') if lead.company_type else '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Головная компания</div>
+                        <div class="text-sm text-ink">
+                            {% if lead.parent_lead %}
+                            <a href="/leads/{{ lead.parent_lead.id }}" class="text-blue-500 hover:underline">{{ lead.parent_lead.name }}</a>
+                            {% else %}—{% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Закупки</div>
+                        <div class="text-sm text-ink">{{ purchase_type_labels.get(lead.purchase_type, '—') if lead.purchase_type else '—' }}</div>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-xs text-muted">Руководитель</div>
-                    <div class="text-sm text-ink">{{ lead.head_name or '—' }}</div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                        <div class="text-xs text-muted">ИНН</div>
+                        <div class="text-sm font-mono text-ink">{{ lead.inn or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Руководитель</div>
+                        <div class="text-sm text-ink">{{ lead.head_name or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Сайт</div>
+                        <div class="text-sm text-ink">{{ lead.site or '—' }}</div>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-xs text-muted">Сайт</div>
-                    <div class="text-sm text-ink">{{ lead.site or '—' }}</div>
+                <button onclick="switchTab('requisites')" class="text-xs text-blue-500 hover:underline mt-2">Все реквизиты →</button>
+            </section>
+
+            {# 2. Квалификация #}
+            <section>
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Квалификация</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <div class="text-xs text-muted">Уровень</div>
+                        <div class="text-sm text-ink">{{ lead.level or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Приоритет</div>
+                        <div class="text-sm text-ink">{{ lead.priority or '—' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Статус квалификации</div>
+                        {% set qchip = {'none': 'bg-slate-100 text-muted', 'in_progress': 'bg-blue-50 text-blue-600', 'confirmed': 'bg-emerald-50 text-emerald-600', 'rejected': 'bg-red-50 text-red-600'} %}
+                        <span class="px-2 py-0.5 rounded-lg text-xs {{ qchip.get(lead.qualification_status, 'bg-slate-100') }}">{{ qualification_labels.get(lead.qualification_status, lead.qualification_status) }}</span>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-xs text-muted">Уровень</div>
-                    <div class="text-sm text-ink">{{ lead.level or '—' }}</div>
+                <div class="mt-2 text-xs text-muted">
+                    ЛПР: {% set dm = lead.contacts | selectattr('is_decision_maker') | list %}
+                    {% if dm %}{{ dm[0].name }}{% if dm[0].position %} ({{ dm[0].position }}){% endif %} · <button onclick="switchTab('contacts')" class="text-blue-500 hover:underline">контакты →</button>
+                    {% else %}не отмечен · <button onclick="switchTab('contacts')" class="text-blue-500 hover:underline">отметить в контактах →</button>{% endif %}
                 </div>
-                <div>
-                    <div class="text-xs text-muted">Приоритет</div>
-                    <div class="text-sm text-ink">{{ lead.priority or '—' }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Рапс подтверждён</div>
-                    <div class="text-sm text-ink">{{ 'Да' if lead.rapeseed_verified else 'Нет' }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Объём рапса</div>
-                    <div class="text-sm text-ink">{{ lead.rapeseed_volume or '—' }}</div>
-                </div>
-                <div>
-                    <div class="text-xs text-muted">Тайминг уборки</div>
-                    <div class="text-sm text-ink">{{ lead.harvest_timing or '—' }}</div>
-                </div>
-            </div>
-            <div class="mt-4">
-                <div class="text-xs text-muted">Комментарий для CRM</div>
+            </section>
+
+            {# 3. Направления #}
+            <section>
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Направления</h3>
+                {% include "partials/lead_directions_block.html" %}
+            </section>
+
+            {# 4. Досье и теги #}
+            <section>
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Досье и теги</h3>
                 <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.general_comment or '—' }}</div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                    <div class="text-xs text-muted">Что сделано</div>
-                    <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.done_summary or '—' }}</div>
+                <div class="mt-3">
+                    {% with tag_error = None %}{% include "partials/lead_tags_block.html" %}{% endwith %}
                 </div>
-                <div>
-                    <div class="text-xs text-muted">Что нужно сделать</div>
-                    <div class="text-sm text-ink whitespace-pre-wrap">{{ lead.todo_summary or '—' }}</div>
+            </section>
+
+            {# 5. Активность #}
+            <section>
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Активность</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <div class="text-xs text-muted">Последнее действие</div>
+                        <div class="text-sm text-ink">
+                            {% if last_activity %}
+                            {{ (last_activity.title or last_activity.result or '')[:100] }}
+                            <span class="text-xs text-muted">· {{ last_activity.date.strftime('%d.%m.%Y') if last_activity.date else '' }}</span>
+                            {% else %}—{% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted">Следующий шаг</div>
+                        {% if next_task %}
+                        <div class="text-sm text-ink">{{ next_task.title[:100] }}
+                            <span class="text-xs text-muted">· до {{ next_task.due_date.strftime('%d.%m.%Y') }}</span></div>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-lg text-xs bg-red-50 text-red-600">Нет задачи</span>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
+            </section>
+
             {% if lead.stage == 'lost' %}
             <div class="mt-4">
                 <div class="text-xs text-muted">Причина потери</div>
@@ -90,7 +141,35 @@
 
         <div class="edit-mode hidden">
             <form hx-post="/leads/{{ lead.id }}/edit" hx-target="#lead-info-container" hx-swap="innerHTML">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-3">Компания</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Тип</label>
+                        <select name="company_type" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                            <option value="">—</option>
+                            {% for v, lbl in company_type_labels.items() %}
+                            <option value="{{ v }}" {% if lead.company_type == v %}selected{% endif %}>{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Головная компания</label>
+                        <select name="parent_lead_id" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                            <option value="">—</option>
+                            {% for pl in parent_candidates %}
+                            <option value="{{ pl[0] }}" {% if lead.parent_lead_id == pl[0] %}selected{% endif %}>{{ pl[1][:60] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Закупки</label>
+                        <select name="purchase_type" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                            <option value="">—</option>
+                            {% for v, lbl in purchase_type_labels.items() %}
+                            <option value="{{ v }}" {% if lead.purchase_type == v %}selected{% endif %}>{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-xs text-muted mb-1">ИНН</label>
                         <input type="text" name="inn" value="{{ lead.inn or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm font-mono text-ink">
@@ -103,6 +182,10 @@
                         <label class="block text-xs text-muted mb-1">Сайт</label>
                         <input type="text" name="site" value="{{ lead.site or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
                     </div>
+                </div>
+
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-3 mt-5">Квалификация</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs text-muted mb-1">Уровень</label>
                         <select name="level" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
@@ -121,33 +204,22 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="flex items-center gap-2 mt-6">
-                        <input type="checkbox" name="rapeseed_verified" id="rapeseed_verified" {% if lead.rapeseed_verified %}checked{% endif %} class="rounded">
-                        <label for="rapeseed_verified" class="text-sm text-ink">Рапс подтверждён</label>
-                    </div>
                     <div>
-                        <label class="block text-xs text-muted mb-1">Объём рапса</label>
-                        <input type="text" name="rapeseed_volume" value="{{ lead.rapeseed_volume or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Тайминг уборки</label>
-                        <input type="text" name="harvest_timing" value="{{ lead.harvest_timing or '' }}" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">
+                        <label class="block text-xs text-muted mb-1">Статус квалификации</label>
+                        <select name="qualification_status" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink bg-white">
+                            {% for v, lbl in qualification_labels.items() %}
+                            <option value="{{ v }}" {% if lead.qualification_status == v %}selected{% endif %}>{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
-                <div class="mt-4">
-                    <label class="block text-xs text-muted mb-1">Комментарий для CRM</label>
-                    <textarea name="general_comment" rows="3" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.general_comment or '' }}</textarea>
+
+                <h3 class="text-xs font-medium text-muted uppercase tracking-wide mb-3 mt-5">Досье</h3>
+                <div>
+                    <label class="block text-xs text-muted mb-1">Досье о клиенте (не устаревающее: структура, площади, схема закупок; #слово станет тегом)</label>
+                    <textarea name="general_comment" rows="4" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.general_comment or '' }}</textarea>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Что сделано</label>
-                        <textarea name="done_summary" rows="3" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.done_summary or '' }}</textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted mb-1">Что нужно сделать</label>
-                        <textarea name="todo_summary" rows="3" class="w-full border border-black/10 rounded-lg px-3 py-2 text-sm text-ink">{{ lead.todo_summary or '' }}</textarea>
-                    </div>
-                </div>
+
                 {% if lead.stage == 'lost' %}
                 <div class="mt-4">
                     <label class="block text-xs text-muted mb-1">Причина потери</label>
@@ -161,8 +233,7 @@
             </form>
         </div>
 
-        {# Назначение менеджера перенесено в шапку карточки (inline-редактор).
-           Здесь форму не дублируем — иначе два источника правды рассинхронятся. #}
+        {# Назначение менеджера — в шапке карточки (inline-редактор), здесь не дублируем. #}
     </div>
 </div>
 
@@ -172,8 +243,7 @@ function toggleEditMode() {
     document.querySelector('.edit-mode').classList.toggle('hidden');
 }
 
-function toggleDadataPanel() {
-    var panel = document.getElementById('dadata-panel');
+function toggleDadataPanel() {    var panel = document.getElementById('dadata-panel');
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) {
         var input = document.getElementById('dadata-query');
