@@ -21,9 +21,9 @@
 </div>
 {% endif %}
 
-<div class="flex gap-6">
-    <aside class="w-64 shrink-0 overflow-y-auto" style="max-height: calc(100vh - 180px)">
-        <nav class="space-y-0.5 pb-4">
+<div class="flex gap-6 h-full min-h-0">
+    <aside class="w-64 shrink-0 h-full flex flex-col min-h-0">
+        <nav class="flex-1 min-h-0 overflow-y-auto space-y-0.5 pb-4 pr-1">
             <a href="/prices" class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {% if not category_id %}bg-ink text-white{% else %}text-ink hover:bg-slate-100{% endif %}">
                 <span>Все товары</span>
                 <span class="text-xs shrink-0 {% if not category_id %}text-white/70{% else %}text-muted{% endif %}">{{ roots | sum(attribute='obj.total') }}</span>
@@ -31,7 +31,7 @@
             {% for node in roots %}{{ cat_link(node, 0) }}{% endfor %}
         </nav>
     </aside>
-    <section class="flex-1 min-w-0">
+    <section class="flex-1 min-w-0 h-full overflow-y-auto pb-6 pr-1">
         <div class="flex items-center gap-3 mb-3 flex-wrap">
             <form method="get" action="/prices" class="flex items-center gap-2">
                 <input type="hidden" name="category_id" value="{{ category_id or '' }}">
