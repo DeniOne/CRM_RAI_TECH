@@ -3,7 +3,7 @@
 schema_version: 1
 id: CRM-RAI-OS-CHANGE-006
 module_id: crm-rai
-status: proposed   # → implemented в фазе 25 (RAI-OS-DIR-002: CRM_ENV-профили + fail-fast + ротация), см. PLAN T-06..T-08
+status: implemented  # фаза 25 / RAI-OS-DIR-002: профиль CRM_ENV (dev|prod) + fail-fast на dev-дефолтах + ротация прод-админа; закрытие — за OS-сверкой
 priority: P1
 type: deployment
 summary: >
@@ -21,8 +21,11 @@ contracts: []
 decisions:
   - "Целевое: явные профили deployment_profiles dev/prod, обязательные секреты без dev-фолбэков в проде, проверка конфигурации на старте; dev-дефолты остаются только для local-dev"
   - "Текущее состояние зафиксировано предлагаемым исключением RAI-OS-WAIVER-002 до реализации"
+  - "Реализовано в фазе 25 (RAI-OS-DIR-002): CRM_ENV=dev|prod в app/config.py, fail-fast RuntimeError на import при dev-дефолтах/пустых SECRET_KEY/ADMIN_PASSWORD в prod, guard на опечатку CRM_ENV; прод-деплой переведён на CRM_ENV=prod; ротация дефолтного прод-админа (recheck=0)"
 evidence:
   - app/config.py
   - .gitignore
   - docker-compose.yml
   - .planning/SERVER_ACCESS.md
+  - .planning/phases/25-rai-os-dir-002/EVIDENCE-ROTATION-2026-09-07.md
+  - .planning/phases/25-rai-os-dir-002/README-CONTRACT-PHASE-25.md

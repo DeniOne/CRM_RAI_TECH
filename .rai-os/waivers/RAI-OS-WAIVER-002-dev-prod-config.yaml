@@ -1,6 +1,6 @@
-# Исключение (ОДОБРЕНО Владельцем по RAI-OS-DECISION-CRM-001 от 2026-09-07; срок сокращён до 2026-09-27)
-# АКТИВАЦИЯ (status: active + внесение в policy-lock.exceptions) — только после
-# свидетельства ротации по RAI-OS-DIR-002 (повторный boolean re-check).
+# Исключение (ОДОБРЕНО Владельцем по RAI-OS-DECISION-CRM-001 от 2026-09-07; срок до 2026-09-27)
+# АКТИВИРОВАНО в фазе 25: свидетельство ротации по RAI-OS-DIR-002 существует
+# (EVIDENCE-ROTATION-2026-09-07.md: recheck_users_on_default_password=0).
 # OS-мастер-копия: F:\RAI_ALL_OS\waivers\RAI-OS-WAIVER-002.yaml
 # Схема: RAI_OS/protocol/schemas/waiver.schema.json
 schema_version: 1
@@ -8,7 +8,7 @@ id: RAI-OS-WAIVER-002
 module_id: crm-rai
 rule: "Политика delivery/security: профили развёртывания dev/prod разделены; прод не может подняться на dev-дефолтах SECRET_KEY/ADMIN_PASSWORD"
 priority: P1
-status: approved
+status: active
 reason: >
   В app/config.py зашиты dev-дефолты SECRET_KEY и ADMIN_PASSWORD; один .env на
   dev и прод; защиты от старта прод-инстанса на дефолтах нет. Проверка 2026-09-07:

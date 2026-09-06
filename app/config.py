@@ -1,12 +1,20 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
+# Dev-дефолты секретов: в профиле prod (CRM_ENV=prod) их использование запрещено —
+# RuntimeError на import, приложение не стартует (RAI-OS-DIR-002).
+DEV_DEFAULT_SECRET_KEY = "dev-secret-change-in-production"
+DEV_DEFAULT_ADMIN_PASSWORD = "admin"
+
 
 class Settings(BaseSettings):
+    # Профиль среды: dev (локальная разработка, допустимы dev-дефолты) | prod
+    # (прод-деплой: fail-fast на дефолтных/пустых SECRET_KEY/ADMIN_PASSWORD).
+    CRM_ENV: str = "dev"
     DATABASE_URL: str = "sqlite+aiosqlite:///./storage/crm.db"
-    SECRET_KEY: str = "dev-secret-change-in-production"
+    SECRET_KEY: str = DEV_DEFAULT_SECRET_KEY
     ADMIN_EMAIL: str = "admin@crm.local"
-    ADMIN_PASSWORD: str = "admin"
+    ADMIN_PASSWORD: str = DEV_DEFAULT_ADMIN_PASSWORD
 
     HERMES_API_URL: str = "http://localhost:8080"
     HERMES_API_TOKEN: str = ""
@@ -44,6 +52,27 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _enforce_profile(s: Settings) -> None:
+    if s.CRM_ENV not in ("dev", "prod"):
+        # Опечатка в профиле не должна молча отключать fail-fast (CRM_ENV=production).
+        raise RuntimeError(f"CRM_ENV must be 'dev' or 'prod', got {s.CRM_ENV!r}")
+    if s.CRM_ENV != "prod":
+        return
+    insecure = []
+    if not s.SECRET_KEY.strip() or s.SECRET_KEY == DEV_DEFAULT_SECRET_KEY:
+        insecure.append("SECRET_KEY")
+    if not s.ADMIN_PASSWORD.strip() or s.ADMIN_PASSWORD == DEV_DEFAULT_ADMIN_PASSWORD:
+        insecure.append("ADMIN_PASSWORD")
+    if insecure:
+        raise RuntimeError(
+            f"CRM_ENV=prod запрещает dev-дефолты/пустые значения: {', '.join(insecure)}"
+            " (RAI-OS-DIR-002). Задайте реальные значения в .env."
+        )
+
+
+_enforce_profile(settings)
 
 # Ensure storage directory exists
 settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)

@@ -484,10 +484,11 @@ cd crm-rai
 
 # Создать .env (НЕ коммитится — в .gitignore)
 cat > .env << EOF
+CRM_ENV=prod
 DATABASE_URL=sqlite+aiosqlite:///./storage/crm.db
 SECRET_KEY=<сгенерировать>
 ADMIN_EMAIL=admin@crm.local
-ADMIN_PASSWORD=<пароль>
+ADMIN_PASSWORD=<сильный пароль>
 HERMES_API_URL=http://localhost:8080
 HERMES_API_TOKEN=
 HERMES_TIMEOUT=120
@@ -516,6 +517,13 @@ cd /srv/crm-rai
 git pull
 docker compose up -d --build
 ```
+
+### Профиль среды (RAI-OS-DIR-002)
+
+`CRM_ENV` в `.env`: `dev` (по умолчанию, локальная разработка — dev-дефолты секретов
+допустимы) | `prod` (обязателен на проде). При `CRM_ENV=prod` приложение **не
+стартует** (RuntimeError на import), если `SECRET_KEY` или `ADMIN_PASSWORD` пустые
+или равны dev-дефолтам; опечатка в значении `CRM_ENV` также приводит к отказу старта.
 
 ### Docker-конфигурация
 

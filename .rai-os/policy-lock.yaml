@@ -10,12 +10,12 @@ adopted:
   governance: { version: 1.0.0, status: declared }   # процесс внедрён фазой 24; enforcement локальный, OS-сверки ещё не было
   architecture: { version: 1.0.0, status: declared } # donor-and-standalone декларирован; целевые адаптеры платформы не построены
   data_ownership: { version: 1.0.0, status: declared } # владение sales-domain декларировано; конфликтующих владельцев не выявлено
-  security: { version: 1.0.0, status: partial }  # role-гейты в UI есть (app/routes/*); объектная авторизация частична (CRM-RAI-OS-CHANGE-002); MCP без auth (CHANGE-003)
-  contracts: { version: 1.0.0, status: partial } # есть фактический MCP-интерфейс; версионированного контракта нет (CHANGE-003)
+  security: { version: 1.0.0, status: partial }  # role-гейты в UI; объектная авторизация частична (CHANGE-002); MCP без auth (CHANGE-003, W1); дефолтный прод-админ ротирован, fail-fast профиля prod внедрён (DIR-002, фаза 25)
+  contracts: { version: 1.0.0, status: partial } # есть фактические MCP-интерфейсы (stdio + мост :8100, DRIFT-CRM-001 объявлен); версионированного контракта нет (CHANGE-003)
   design: { version: 1.0.0, status: partial }    # Visual Canon соблюдается UI-фазами (фазы 5, 22–23); за пределами UI не применялся
-  ai: { version: 1.0.0, status: partial }        # Hermes-интеграция работает; A-RAI control plane нет; MCP-мутации вне авторизации (CHANGE-003)
-  delivery: { version: 1.0.0, status: partial }  # docker-деплой на rai-dev работает; CI нет; dev/prod разделение — CHANGE-006
+  ai: { version: 1.0.0, status: partial }        # Hermes-интеграция работает; A-RAI control plane нет; MCP-мутации вне авторизации (CHANGE-003, W1)
+  delivery: { version: 1.0.0, status: partial }  # docker-деплой работает; CI нет; профили dev/prod + fail-fast внедрены (DIR-002); полное закрытие CHANGE-006 — за OS-сверкой
 enforcement: declared
-# RAI-OS-DECISION-CRM-001 (2026-09-07): W1 активирован Владельцем; W2 активируется
-# после свидетельства ротации по DIR-002 (в фазе 25, PLAN T-03)
-exceptions: [RAI-OS-WAIVER-001]
+# RAI-OS-DECISION-CRM-001 (2026-09-07): W1 активирован Владельцем; W2 активирован
+# в фазе 25 после свидетельства ротации по DIR-002 (recheck=0, EVIDENCE-ROTATION-2026-09-07.md)
+exceptions: [RAI-OS-WAIVER-001, RAI-OS-WAIVER-002]
