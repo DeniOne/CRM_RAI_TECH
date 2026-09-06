@@ -8,6 +8,7 @@ DEV_DEFAULT_ADMIN_PASSWORD = "admin"
 
 
 class Settings(BaseSettings):
+    crm_integration_key: str = ""
     # Профиль среды: dev (локальная разработка, допустимы dev-дефолты) | prod
     # (прод-деплой: fail-fast на дефолтных/пустых SECRET_KEY/ADMIN_PASSWORD).
     CRM_ENV: str = "dev"
