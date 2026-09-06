@@ -33,6 +33,7 @@ dependencies:
 contracts:
   provides:
     - "MCP stdio tools (16 шт., mcp_server.py) поверх SQLite — фактический внутренний интерфейс; НЕ утверждённый интеграционный контракт OS (см. CRM-RAI-OS-CHANGE-003)"
+    - "HTTP-мост MCP :8100 (серверный run_mcp_http.py, streamable-http поверх того же mcp_server.py; потребитель rai-ep dev api; ufw-доступ только из docker-подсети 172.23.0.0/16; allowed_hosts=['*'] — контроль экспозиции только ufw) — фактический внутренний интерфейс, НЕ контракт OS (DRIFT-CRM-001, объявлен по RAI-OS-DECISION-CRM-001; см. CHANGE-003)"
     - "server-rendered web UI (Jinja2+HTMX) — внутренний, не контракт"
     - "стабильный внешний integration API — ОТСУТСТВУЕТ, зафиксирован пробелом CRM-RAI-OS-CHANGE-003"
   consumes:
@@ -42,7 +43,7 @@ platform:
   identity: "локальная cookie-session auth (itsdangerous подписанная cookie + pbkdf2_hmac, app/auth.py), пользователи в SQLite, роли manager/supervisor/admin; платформенной идентичности нет (цель: адаптер rai-ep identity)"
   tenancy: "однотенантная (single-tenant) среда исполнения: модели тенанта/организации и контекста тенанта нет (пробел CRM-RAI-OS-CHANGE-001)"
   party_registry: "нет; Lead — sales-domain запись, не каноническая Party (must_not_own; цель: rai-ep Party Registry)"
-  ai_control_plane: "нет; Hermes gateway вызывает MCP-инструменты с прямой записью в БД в обход auth/доменных сервисов CRM (пробел CRM-RAI-OS-CHANGE-003 + RAI-OS-WAIVER-001; цель: A-RAI)"
+  ai_control_plane: "нет; Hermes gateway вызывает MCP-инструменты с прямой записью в БД в обход auth/доменных сервисов CRM (пробел CRM-RAI-OS-CHANGE-003 + RAI-OS-WAIVER-001; цель: A-RAI). Дополнительно: HTTP-мост :8100 (run_mcp_http.py) для rai-ep dev api из docker-подсети 172.23.0.0/16 — тот же набор инструментов, DRIFT-CRM-001 (объявлен по RAI-OS-DECISION-CRM-001)"
   deployment_profiles:
     - "docker-single-host: rai-dev /srv/crm-rai, network_mode host, SQLite volume (прод, https://raitechnology.online)"
     - "local-dev: Windows, venv, локальная копия БД"

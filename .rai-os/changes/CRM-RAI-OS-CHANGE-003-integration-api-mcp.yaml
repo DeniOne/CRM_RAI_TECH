@@ -7,25 +7,35 @@ status: proposed
 priority: P1
 type: api
 summary: >
-  Единственный программный интерфейс — MCP stdio (mcp_server.py, 16 инструментов):
-  поиски открывают SQLite в mode=ro, 8 мутационных инструментов пишут напрямую
-  (create_task, update_task_status, create_deal, update_deal_status, add_comment,
-  add_contact_log, change_lead_stage) через собственные соединения, без
-  аутентификации, без контекста действующего лица/тенанта, вне доменных сервисов
-  и вне funnel-гейтов FastAPI. Изоляция — только конфигурацией Hermes (stdio,
-  localhost). Версионированного API-контракта нет. Прямые записи MCP НЕ объявляются
-  утверждённым интеграционным контрактом OS (директива RAI-OS-DIR-001, раздел CRM RAI).
-  Действующее поведение зафиксировано предлагаемым исключением RAI-OS-WAIVER-001.
+  Программные интерфейсы — только поверх SQLite напрямую (де-факто, неверсионированные):
+  (a) MCP stdio (mcp_server.py, 16 инструментов): поиски открывают SQLite в mode=ro,
+  8 мутационных инструментов пишут напрямую (create_task, update_task_status,
+  create_deal, update_deal_status, add_comment, add_contact_log, change_lead_stage)
+  через собственные соединения, без аутентификации, без контекста действующего
+  лица/тенанта, вне доменных сервисов и вне funnel-гейтов FastAPI; изоляция —
+  конфигурацией Hermes (stdio, localhost). (b) DRIFT-CRM-001 (обнаружен OS-сверкой
+  2026-09-07, объявлен по RAI-OS-DECISION-CRM-001): серверный HTTP-мост
+  run_mcp_http.py — тот же mcp_server в transport streamable-http на :8100,
+  слушает 0.0.0.0, ufw разрешает только docker-подсеть 172.23.0.0/16 (потребитель
+  rai-ep dev api), transport_security.allowed_hosts содержит '*' — контроль
+  экспозиции фактически только ufw. Версионированного API-контракта нет.
+  Прямые записи MCP (оба транспорта) НЕ объявляются утверждённым интеграционным
+  контрактом OS (директива RAI-OS-DIR-001, раздел CRM RAI). Действующее поведение
+  зафиксировано активным исключением RAI-OS-WAIVER-001.
 affects:
   - crm-rai
   - hermes-gateway
+  - rai-dev-api
   - rai-os-integration
 contracts:
   - "mcp-stdio-tools-v0 (de facto, неверсионированный, НЕ контракт OS)"
+  - "mcp-http-bridge-8100 (de facto, серверный run_mcp_http.py, ufw 172.23.0.0/16, НЕ контракт OS)"
 decisions:
   - "Целевое: стабильный версионированный integration API за доменными сервисами CRM; AI-мутации — только через A-RAI/Action Gateway с авторизацией, идемпотентностью, аудитом и трассировкой (canon §4.4/§4.6, §5)"
   - "Пока целевые контракты не утверждены на вехе «Общие контракты» — постоянных замен не создаём (canon §5)"
+  - "DRIFT-CRM-001 (условия RAI-OS-DECISION-CRM-001): мост :8100 объявлен и не расширяется — за пределы docker-подсети 172.23.0.0/16 без нового OS-решения; новые мутационные MCP-инструменты не добавляются до закрытия этого CHANGE; ревью waiver перед каждой затронутой фазой"
 evidence:
   - mcp_server.py
   - docs/CRM_RAI_TECH.md
   - .rai-os/waivers/RAI-OS-WAIVER-001-mcp-direct-rw.yaml
+  - .planning/phases/25-rai-os-dir-002/01-PLAN.md

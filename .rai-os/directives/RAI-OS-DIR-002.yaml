@@ -1,0 +1,12 @@
+# Директива RAI-OS-DIR-002 (P0): ротация прод-админа + fail-fast конфигурация
+# OS-мастер: F:\RAI_ALL_OS\directives\RAI-OS-DIR-002.yaml (approved 2026-09-07)
+# Шаблон: RAI_OS/protocol/templates/directive-ack.yaml
+schema_version: 1
+directive_id: RAI-OS-DIR-002
+module_id: crm-rai
+status: acknowledged
+acknowledged_by: ZCode (Tech Lead, по поручению Владельца Denis)
+acknowledged_at: "2026-09-07"
+plan_ref: .planning/phases/25-rai-os-dir-002/01-PLAN.md
+evidence:
+  - .planning/phases/25-rai-os-dir-002/EVIDENCE-ROTATION-2026-09-07.md

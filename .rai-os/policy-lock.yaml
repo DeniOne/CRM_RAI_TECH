@@ -16,4 +16,6 @@ adopted:
   ai: { version: 1.0.0, status: partial }        # Hermes-интеграция работает; A-RAI control plane нет; MCP-мутации вне авторизации (CHANGE-003)
   delivery: { version: 1.0.0, status: partial }  # docker-деплой на rai-dev работает; CI нет; dev/prod разделение — CHANGE-006
 enforcement: declared
-exceptions: []  # пусто: оба waiver (RAI-OS-WAIVER-001/002) — proposed, ждут одобрения Владельца; попадут сюда после утверждения
+# RAI-OS-DECISION-CRM-001 (2026-09-07): W1 активирован Владельцем; W2 активируется
+# после свидетельства ротации по DIR-002 (в фазе 25, PLAN T-03)
+exceptions: [RAI-OS-WAIVER-001]

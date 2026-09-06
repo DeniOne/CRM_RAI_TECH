@@ -3,7 +3,7 @@
 schema_version: 1
 id: CRM-RAI-OS-CHANGE-006
 module_id: crm-rai
-status: proposed
+status: proposed   # → implemented в фазе 25 (RAI-OS-DIR-002: CRM_ENV-профили + fail-fast + ротация), см. PLAN T-06..T-08
 priority: P1
 type: deployment
 summary: >

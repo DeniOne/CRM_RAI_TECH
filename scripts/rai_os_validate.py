@@ -168,15 +168,19 @@ def cross_checks(module: dict, policy: dict, changes: list[dict],
         if w.get("module_id") != mid:
             errors.append(f"waiver {w.get('id')}: module_id != {mid}")
 
-    # в policy-lock.exceptions — только утверждённые (не proposed) waiver
+    # в policy-lock.exceptions — только действующие (active) waiver;
+    # approved-без-активации — легальный промежуточный статус по решению OS
     listed = set(policy.get("exceptions", []))
     for w in waivers:
         wid = w.get("id", "")
-        if wid in listed and w.get("status") == "proposed":
-            errors.append(f"policy-lock.exceptions содержит proposed waiver {wid} — "
-                          f"вносить только после одобрения Владельца")
-        if wid not in listed and w.get("status") in ("approved", "active"):
-            errors.append(f"waiver {wid} approved/active, но отсутствует в policy-lock.exceptions")
+        if wid in listed and w.get("status") in ("proposed", "approved"):
+            errors.append(f"policy-lock.exceptions содержит {w.get('status')} waiver {wid} — "
+                          f"вносить только после активации (status: active)")
+        if wid not in listed and w.get("status") == "active":
+            errors.append(f"waiver {wid} active, но отсутствует в policy-lock.exceptions")
+        if wid in listed and w.get("status") in ("remediated", "expired", "revoked"):
+            errors.append(f"policy-lock.exceptions содержит недействующий waiver {wid} "
+                          f"(status: {w.get('status')})")
 
     # подтверждение директивы ссылается на существующий PLAN
     for ack in acks:

@@ -1,28 +1,31 @@
-# Предлагаемое исключение: единая dev/prod конфигурация с dev-дефолтами секретов
+# Исключение (ОДОБРЕНО Владельцем по RAI-OS-DECISION-CRM-001 от 2026-09-07; срок сокращён до 2026-09-27)
+# АКТИВАЦИЯ (status: active + внесение в policy-lock.exceptions) — только после
+# свидетельства ротации по RAI-OS-DIR-002 (повторный boolean re-check).
+# OS-мастер-копия: F:\RAI_ALL_OS\waivers\RAI-OS-WAIVER-002.yaml
 # Схема: RAI_OS/protocol/schemas/waiver.schema.json
-# Статус proposed — требует одобрения Владельца (governance §4: P0/P1 только Владелец)
 schema_version: 1
 id: RAI-OS-WAIVER-002
 module_id: crm-rai
 rule: "Политика delivery/security: профили развёртывания dev/prod разделены; прод не может подняться на dev-дефолтах SECRET_KEY/ADMIN_PASSWORD"
 priority: P1
-status: proposed
+status: approved
 reason: >
-  app/config.py содержит dev-дефолты SECRET_KEY и ADMIN_PASSWORD ("admin"), один
-  .env обслуживает dev и прод (см. CRM-RAI-OS-CHANGE-006). Реальный прод-инстанс
-  использует значения из серверного .env, но защиты от запуска с дефолтами нет.
+  В app/config.py зашиты dev-дефолты SECRET_KEY и ADMIN_PASSWORD; один .env на
+  dev и прод; защиты от старта прод-инстанса на дефолтах нет. Проверка 2026-09-07:
+  SECRET_KEY переопределён (true), ADMIN_PASSWORD — нет (false), активный
+  prod-админ на дефолтном пароле (см. RAI-OS-DIR-002, P0).
 risk: >
-  При ошибке конфигурации прод-инстанс поднимается на предсказуемых креденшалах
-  (админ admin/admin) и предсказуемом ключе сессий; локальная dev-копия работает
-  с копией прод-БД.
+  Предсказуемые креденшалы прод-инстанса при ошибке конфигурации; действующий
+  дефолтный admin-доступ с интернет-логином до ротации.
 compensating_controls:
-  - ".env в .gitignore и не попадает в git (проверено git ls-files); секреты не коммитятся"
-  - "Прод-инстанс настроен серверным .env с реальными значениями (docs/CRM_RAI_TECH.md §10)"
-  - "Порт 8000 закрыт ufw, наружу только nginx TLS; доступ к /reports,/analytics,/admin ограничен ролями"
-  - "Бэкапы БД по регламенту обслуживания (docs/CRM_RAI_TECH.md §11)"
+  - ".env в .gitignore, в git не попадает"
+  - "SECRET_KEY прод переопределён (boolean re-check 2026-09-07)"
+  - "ufw DENY 8000; наружу только nginx TLS; /reports,/analytics,/admin за ролями"
+  - "До ротации действует P0-блок auth/deploy-фаз (RAI-OS-DIR-002)"
 owner: Denis
-approved_by: pending
-approved_at: "2026-09-06"
-expires_at: "2026-10-06"
+approved_by: Denis
+approved_at: "2026-09-07"
+expires_at: "2026-09-27"
 exit_criteria:
-  - "Профили dev/prod разведены, прод-старт с dev-дефолтами невозможен (fail-fast валидация конфигурации) — закрытие CRM-RAI-OS-CHANGE-006"
+  - "Ротация prod admin подтверждена повторным boolean re-check (RAI-OS-DIR-002)"
+  - "Профили dev/prod разведены, прод-старт с dev-дефолтами невозможен (fail-fast) — закрытие CRM-RAI-OS-CHANGE-006"
