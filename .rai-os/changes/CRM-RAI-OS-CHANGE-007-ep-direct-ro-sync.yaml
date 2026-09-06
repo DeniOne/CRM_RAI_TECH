@@ -1,0 +1,30 @@
+# Пробел/декларация: прямое read-only чтение БД CRM внешним модулем (rai-ep hourly sync)
+# Обнаружено при исполнении фазы 25 (RAI-OS-DIR-002); декларируется, runtime не меняется
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-007
+module_id: crm-rai
+status: proposed
+priority: P1
+type: api
+summary: >
+  Крон rai-ep (root@rai-dev, «17 * * * *», /srv/rai/dev/RAI_EP/scripts/
+  sync_crm_rai_leads.py) каждый час читает /srv/crm-rai/storage/crm.db напрямую
+  (SQLite URI mode=ro, лиды+контакты по маркеру updated_at) и upsert-ит их в свою
+  postgres (commerce_parties по ИНН). Прямая DB-интеграция между модулями — не
+  целевая архитектура (директива RAI-OS-DIR-001, раздел RAI EP: «Не принимать
+  прямую синхронизацию с базой данных CRM как целевую интеграцию»; governance §9).
+  Чтение read-only, идемпотентное, межтенантной утечки/мутаций/раскрытия секретов
+  нет — потому P1 (незаявленная граница интеграции), не P0. Со стороны CRM это
+  незаявленный потребитель данных лидов.
+affects:
+  - crm-rai
+  - rai-ep
+contracts:
+  - "direct-ro-read-of-crm-db-by-rai-ep (de facto, неверсионированный, НЕ контракт OS)"
+decisions:
+  - "CRM-сторона: синк декларирован (этот record + module.yaml); одобрение/декларация со стороны rai-ep — обязанность rai-ep (внешний контур OS)"
+  - "Целевое: заменить прямое чтение версионируемой проекцией/API/outbox (контракты CHANGE-003/CHANGE-005, веха «Общие контракты»); до того — не добавлять новых прямых DB-читателей и не менять схему leads без проверки этого синка"
+evidence:
+  - .planning/phases/25-rai-os-dir-002/01-PLAN.md
+  - .planning/phases/25-rai-os-dir-002/README-CONTRACT-PHASE-25.md

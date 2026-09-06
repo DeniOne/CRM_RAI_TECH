@@ -35,6 +35,7 @@ contracts:
     - "MCP stdio tools (16 шт., mcp_server.py) поверх SQLite — фактический внутренний интерфейс; НЕ утверждённый интеграционный контракт OS (см. CRM-RAI-OS-CHANGE-003)"
     - "HTTP-мост MCP :8100 (серверный run_mcp_http.py, streamable-http поверх того же mcp_server.py; потребитель rai-ep dev api; ufw-доступ только из docker-подсети 172.23.0.0/16; allowed_hosts=['*'] — контроль экспозиции только ufw) — фактический внутренний интерфейс, НЕ контракт OS (DRIFT-CRM-001, объявлен по RAI-OS-DECISION-CRM-001; см. CHANGE-003)"
     - "server-rendered web UI (Jinja2+HTMX) — внутренний, не контракт"
+    - "прямое read-only чтение storage/crm.db модулем rai-ep (hourly cron sync_crm_rai_leads.py, mode=ro, upsert в postgres EP по ИНН) — фактическая интеграция, НЕ контракт OS (CRM-RAI-OS-CHANGE-007)"
     - "стабильный внешний integration API — ОТСУТСТВУЕТ, зафиксирован пробелом CRM-RAI-OS-CHANGE-003"
   consumes:
     - "Hermes chat completions (informal, текущий)"
@@ -63,3 +64,5 @@ evidence:
   - .planning/phases/23-lead-profile/README-CONTRACT-PHASE-23.md
   - scripts/verify.py
   - .planning/phases/24-rai-os-adoption/README-CONTRACT-PHASE-24.md
+  - .planning/phases/25-rai-os-dir-002/EVIDENCE-ROTATION-2026-09-07.md
+  - .planning/phases/25-rai-os-dir-002/README-CONTRACT-PHASE-25.md

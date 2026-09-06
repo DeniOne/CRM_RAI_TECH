@@ -1,12 +1,16 @@
-# Директива RAI-OS-DIR-002 (P0): ротация прод-админа + fail-fast конфигурация
+# Директива RAI-OS-DIR-002 (P0) — ИСПОЛНЕНА в фазе 25 (2026-09-07)
 # OS-мастер: F:\RAI_ALL_OS\directives\RAI-OS-DIR-002.yaml (approved 2026-09-07)
 # Шаблон: RAI_OS/protocol/templates/directive-ack.yaml
 schema_version: 1
 directive_id: RAI-OS-DIR-002
 module_id: crm-rai
-status: acknowledged
+status: satisfied
 acknowledged_by: ZCode (Tech Lead, по поручению Владельца Denis)
 acknowledged_at: "2026-09-07"
 plan_ref: .planning/phases/25-rai-os-dir-002/01-PLAN.md
 evidence:
-  - .planning/phases/25-rai-os-dir-002/EVIDENCE-ROTATION-2026-09-07.md
+  - .planning/phases/25-rai-os-dir-002/EVIDENCE-ROTATION-2026-09-07.md   # rotation-procedure-record + boolean-recheck-result (recheck=0, e2e)
+  - .planning/phases/25-rai-os-dir-002/README-CONTRACT-PHASE-25.md       # changed-files + итоги
+  - app/config.py                                                        # fail-fast + профили CRM_ENV
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-006-dev-prod-separation.yaml       # implemented
+
