@@ -1,0 +1,31 @@
+# Пробел: нет стабильного интеграционного API; MCP пишет в БД напрямую, минуя auth и доменные сервисы
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-003
+module_id: crm-rai
+status: proposed
+priority: P1
+type: api
+summary: >
+  Единственный программный интерфейс — MCP stdio (mcp_server.py, 16 инструментов):
+  поиски открывают SQLite в mode=ro, 8 мутационных инструментов пишут напрямую
+  (create_task, update_task_status, create_deal, update_deal_status, add_comment,
+  add_contact_log, change_lead_stage) через собственные соединения, без
+  аутентификации, без контекста действующего лица/тенанта, вне доменных сервисов
+  и вне funnel-гейтов FastAPI. Изоляция — только конфигурацией Hermes (stdio,
+  localhost). Версионированного API-контракта нет. Прямые записи MCP НЕ объявляются
+  утверждённым интеграционным контрактом OS (директива RAI-OS-DIR-001, раздел CRM RAI).
+  Действующее поведение зафиксировано предлагаемым исключением RAI-OS-WAIVER-001.
+affects:
+  - crm-rai
+  - hermes-gateway
+  - rai-os-integration
+contracts:
+  - "mcp-stdio-tools-v0 (de facto, неверсионированный, НЕ контракт OS)"
+decisions:
+  - "Целевое: стабильный версионированный integration API за доменными сервисами CRM; AI-мутации — только через A-RAI/Action Gateway с авторизацией, идемпотентностью, аудитом и трассировкой (canon §4.4/§4.6, §5)"
+  - "Пока целевые контракты не утверждены на вехе «Общие контракты» — постоянных замен не создаём (canon §5)"
+evidence:
+  - mcp_server.py
+  - docs/CRM_RAI_TECH.md
+  - .rai-os/waivers/RAI-OS-WAIVER-001-mcp-direct-rw.yaml

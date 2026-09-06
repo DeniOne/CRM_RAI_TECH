@@ -1,0 +1,20 @@
+# Подтверждение получения директивы RAI-OS-DIR-001 модулем crm-rai
+# Шаблон: RAI_OS/protocol/templates/directive-ack.yaml
+schema_version: 1
+directive_id: RAI-OS-DIR-001
+module_id: crm-rai
+status: acknowledged
+acknowledged_by: ZCode (Tech Lead, по поручению Владельца Denis)
+acknowledged_at: "2026-09-06"
+plan_ref: .planning/phases/24-rai-os-adoption/01-PLAN.md
+evidence:
+  - .rai-os/module.yaml
+  - .rai-os/policy-lock.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-001-tenancy.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-002-object-authorization.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-003-integration-api-mcp.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-004-migrations.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-005-outbox-events.yaml
+  - .rai-os/changes/CRM-RAI-OS-CHANGE-006-dev-prod-separation.yaml
+  - scripts/rai_os_validate.py
+  - .planning/phases/24-rai-os-adoption/README-CONTRACT-PHASE-24.md

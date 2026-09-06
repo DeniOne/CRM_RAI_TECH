@@ -1,0 +1,26 @@
+# Пробел: схема БД меняется при старте приложения (create_all + ALTER), версионируемых миграций нет
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-004
+module_id: crm-rai
+status: proposed
+priority: P1
+type: schema
+summary: >
+  Схема применяется в init_db() при каждом старте контейнера: create_all плюс
+  ручные идемпотентные ALTER TABLE (app/database.py) для новых колонок leads/
+  contact_logs/users/documents/product_prices/quote_items. Alembic установлен,
+  но не используется. Нет версии схемы, нет миграций отката, нет различия
+  dev/prod-применения: любое развёртывание мутирует прод-БД неконтролируемо
+  на старте. Разовые миграционные скрипты (scripts/migrate_*.py) существуют
+  вне системы версий, часть — с dry-run по умолчанию.
+affects:
+  - crm-rai
+contracts: []
+decisions:
+  - "Целевое: версионируемые миграции (Alembic) с явным применением на деплое, а не мутацией при старте; до этого любые изменения схемы — через OS-impact классификацию (type=schema)"
+  - "В фазе внедрения протокола НЕ исправляется — только фиксация"
+evidence:
+  - app/database.py
+  - scripts/migrate_lead_profile.py
+  - scripts/migrate_stages_v11.py

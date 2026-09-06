@@ -1,0 +1,25 @@
+# Пробел: отсутствие мультитенантности
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-001
+module_id: crm-rai
+status: proposed
+priority: P1
+type: tenancy
+summary: >
+  Среда исполнения однотенантная: в модели данных (app/models.py) и контексте
+  запросов нет тенанта/организации; все записи принадлежат единственному
+  неявному тенанту. Для целевой интеграции в RAI OS каждый межмодульный
+  запрос/событие обязан нести ID тенанта (canon §5), что сейчас невозможно.
+  Решение требует introductions tenant-контекста без поломки standalone-режима.
+affects:
+  - crm-rai
+  - rai-os-integration
+contracts: []
+decisions:
+  - "Целевое решение за rai-ep (контур тенантов/организаций платформы); CRM RAI принимает tenant-контекст через будущий адаптер платформы, не создавая собственный реестр"
+  - "До решения: single-tenant остаётся заявленным фактом (module.yaml platform.tenancy), не целевой архитектурой"
+evidence:
+  - app/models.py
+  - app/auth.py
+  - .rai-os/module.yaml

@@ -1,0 +1,28 @@
+# Пробел: нет разделения dev/prod — конфигурация, секреты и данные
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-006
+module_id: crm-rai
+status: proposed
+priority: P1
+type: deployment
+summary: >
+  Единый профиль конфигурации: один .env и на локальной машине, и на сервере;
+  в app/config.py зашиты dev-дефолты SECRET_KEY="dev-secret-change-in-production"
+  и ADMIN_PASSWORD="admin" — при пустом .env прод-инстанс поднимется на
+  предсказуемых креденшалах. Схема применяется одинаково при каждом старте
+  (см. CHANGE-004), отдельного dev-профиля развёртывания нет; локальная машина
+  работает с копией прод-БД (gitignored). CI и автоматических проверок деплоя
+  нет. Секреты в git не попадают (.env в .gitignore, проверено git ls-files) —
+  активного раскрытия учётных данных нет, есть риск конфигурации.
+affects:
+  - crm-rai
+contracts: []
+decisions:
+  - "Целевое: явные профили deployment_profiles dev/prod, обязательные секреты без dev-фолбэков в проде, проверка конфигурации на старте; dev-дефолты остаются только для local-dev"
+  - "Текущее состояние зафиксировано предлагаемым исключением RAI-OS-WAIVER-002 до реализации"
+evidence:
+  - app/config.py
+  - .gitignore
+  - docker-compose.yml
+  - .planning/SERVER_ACCESS.md

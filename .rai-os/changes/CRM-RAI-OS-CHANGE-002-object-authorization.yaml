@@ -1,0 +1,25 @@
+# Пробел: объектная авторизация неполна и непоследовательна
+# Схема: RAI_OS/protocol/schemas/change.schema.json
+schema_version: 1
+id: CRM-RAI-OS-CHANGE-002
+module_id: crm-rai
+status: proposed
+priority: P1
+type: authorization
+summary: >
+  Чтение скоупится по роли (менеджер видит своих лидов/задачи: app/routes/leads.py,
+  app/routes/tasks.py) и часть записей проверяет владельца (задачи: только свои для
+  manager). Но мутации лида (edit/stage/contacts/comments/journal) проверяют только
+  аутентифицированную сессию без объектной проверки — менеджер может изменить
+  чужого лида прямым запросом по ID. Единой объектной модели авторизации нет;
+  поведение RPC-канала MCP см. отдельно в CRM-RAI-OS-CHANGE-003.
+affects:
+  - crm-rai
+contracts: []
+decisions:
+  - "Целевое: единая объектная авторизация в доменных сервисах, а не в шаблонных проверках роутов; канон: изменения авторизованы и аудируемы (canon §4.6)"
+  - "В фазе внедрения протокола НЕ исправляется — только фиксация (директива RAI-OS-DIR-001, шаг 7)"
+evidence:
+  - app/routes/leads.py
+  - app/routes/tasks.py
+  - app/routes/admin.py

@@ -1,0 +1,64 @@
+# RAI OS Module Passport — CRM RAI
+# Схема: RAI_OS/protocol/schemas/module.schema.json (validate: python scripts/rai_os_validate.py)
+# Это декларация, а не доказательство поведения среды исполнения (governance §3).
+schema_version: 1
+module:
+  id: crm-rai
+  name: CRM RAI
+  role: domain-module
+  lifecycle: donor-and-standalone
+  repository: https://github.com/DeniOne/CRM_RAI_TECH
+  planning_entrypoint: .planning/phases/
+ownership:
+  # Единственный канонический владелец каждого понятия; проекции для чтения допустимы (canon §4).
+  owns:
+    - "sales-domain состояние: лиды и их квалификация, контакты и журнал контактов, комментарии, задачи, сделки/статусы, КП и CPQ (позиции/цены/НДС), документы (КП/договор/счёт/акт) и их печатные формы, стадии воронки и история переходов, теги, направления бизнеса лида"
+    - "локальные пользователи и роли UI (manager/supervisor/admin) — только как локальная auth-модель, не как платформенная идентичность"
+    - "локальный Visual Canon UI CRM (.planning/canon/VISUAL_CANON.md)"
+  projects:
+    - "атрибуты лида-организации (название, ИНН, руководитель, сайт, адрес) — неканоническая sales-domain проекция организации для чтения, НЕ реестр"
+  must_not_own:
+    - "каноническая Party-идентичность / реестр организаций (владелец: rai-ep Party Registry)"
+    - "контур тенантов и организаций платформы (владелец: rai-ep)"
+    - "платформенные идентичность/доступ, A-RAI control plane, Action Gateway, ядро аудита (владелец: rai-ep)"
+    - "данные других модулей (запись в чужие БД запрещена, canon §4.5)"
+dependencies:
+  requires:
+    - "hermes-gateway (текущий runtime: OpenAI-совместимый /v1/chat/completions + хост MCP stdio)"
+    - "rai-ep Party Registry / tenancy / identity / A-RAI (целевое, НЕ интегрировано)"
+  consumes:
+    - "Hermes :8080 /v1/chat/completions (фактический, неверсионированный)"
+    - "DaData Suggestions API (опционально, по ключу из окружения)"
+    - "контракты rai-ep/rai-mi (целевое: пока не потребляется ни одного)"
+contracts:
+  provides:
+    - "MCP stdio tools (16 шт., mcp_server.py) поверх SQLite — фактический внутренний интерфейс; НЕ утверждённый интеграционный контракт OS (см. CRM-RAI-OS-CHANGE-003)"
+    - "server-rendered web UI (Jinja2+HTMX) — внутренний, не контракт"
+    - "стабильный внешний integration API — ОТСУТСТВУЕТ, зафиксирован пробелом CRM-RAI-OS-CHANGE-003"
+  consumes:
+    - "Hermes chat completions (informal, текущий)"
+    - "версионируемых внешних контрактов не потребляет"
+platform:
+  identity: "локальная cookie-session auth (itsdangerous подписанная cookie + pbkdf2_hmac, app/auth.py), пользователи в SQLite, роли manager/supervisor/admin; платформенной идентичности нет (цель: адаптер rai-ep identity)"
+  tenancy: "однотенантная (single-tenant) среда исполнения: модели тенанта/организации и контекста тенанта нет (пробел CRM-RAI-OS-CHANGE-001)"
+  party_registry: "нет; Lead — sales-domain запись, не каноническая Party (must_not_own; цель: rai-ep Party Registry)"
+  ai_control_plane: "нет; Hermes gateway вызывает MCP-инструменты с прямой записью в БД в обход auth/доменных сервисов CRM (пробел CRM-RAI-OS-CHANGE-003 + RAI-OS-WAIVER-001; цель: A-RAI)"
+  deployment_profiles:
+    - "docker-single-host: rai-dev /srv/crm-rai, network_mode host, SQLite volume (прод, https://raitechnology.online)"
+    - "local-dev: Windows, venv, локальная копия БД"
+governance:
+  criticality: high
+  policy_lock: .rai-os/policy-lock.yaml
+  validation_command: python scripts/rai_os_validate.py
+  status: declared
+evidence:
+  - app/auth.py
+  - app/config.py
+  - app/database.py
+  - mcp_server.py
+  - docs/CRM_RAI_TECH.md
+  - .planning/SERVER_ACCESS.md
+  - .planning/canon/VISUAL_CANON.md
+  - .planning/phases/23-lead-profile/README-CONTRACT-PHASE-23.md
+  - scripts/verify.py
+  - .planning/phases/24-rai-os-adoption/README-CONTRACT-PHASE-24.md

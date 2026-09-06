@@ -1,0 +1,30 @@
+# Предлагаемое исключение: MCP-инструменты пишут в SQLite напрямую, минуя auth и доменные сервисы
+# Схема: RAI_OS/protocol/schemas/waiver.schema.json
+# Статус proposed — требует одобрения Владельца (governance §4: P0/P1 только Владелец)
+schema_version: 1
+id: RAI-OS-WAIVER-001
+module_id: crm-rai
+rule: "GOV §9 / canon §4.4-4.6: изменения AI/MCP не должны проходить в обход авторизации и доменных сервисов; изменения авторизованы и прослеживаемы"
+priority: P1
+status: proposed
+reason: >
+  8 мутационных MCP-инструментов (mcp_server.py) пишут в SQLite через собственные
+  RW-соединения без аутентификации и контекста действующего лица — существует со
+  фазы Hermes-интеграции. До целевого integration API/A-RAI Gateway (см.
+  CRM-RAI-OS-CHANGE-003) работа агента зависит от этих инструментов.
+risk: >
+  Привилегированная мутация данных продаж без авторизации, аудита действующего
+  лица и идемпотентности; при расширении экспозиции Hermes (сеть, внешние клиенты)
+  эскалирует до P0.
+compensating_controls:
+  - "Транспорт только stdio: MCP-сервер запускается Hermes как subprocess на том же хосте, сетевого экспорта порта нет"
+  - "Поисковые инструменты работают в mode=ro (read-only соединения)"
+  - "Хост rai-dev: порт 8000 закрыт ufw, наружу только nginx TLS (raitechnology.online)"
+  - "Однотенантная среда: межтенантной утечки нет по построению (см. CHANGE-001)"
+  - "change_lead_stage пишет StageHistory — переходы стадий частично прослеживаемы"
+owner: Denis
+approved_by: pending
+approved_at: "2026-09-06"
+expires_at: "2026-12-06"
+exit_criteria:
+  - "Утверждён версионированный integration API CRM и мутационные MCP-инструменты переведены на него (закрытие CRM-RAI-OS-CHANGE-003), либо доступ агента ограничен read-only до готовности A-RAI/Action Gateway"
