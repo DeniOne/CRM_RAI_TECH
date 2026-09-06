@@ -71,11 +71,13 @@ app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="stat
 
 templates = Jinja2Templates(directory=str(settings.TEMPLATES_DIR))
 
+from app.routes import integration
 from app.routes import auth, dashboard, leads, tasks, documents, deals, reports, agent, admin, ticker, library, catalog, prices, quotes  # noqa: E402
 from app.routes import invoices as invoices_routes  # noqa: E402
 from app.routes import analytics as analytics_routes  # noqa: E402
 from app.routes import settings as settings_routes  # noqa: E402  (алиас: `settings` в этом модуле — config)
 
+app.include_router(integration.router)
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(leads.router)
