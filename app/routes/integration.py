@@ -141,14 +141,16 @@ async def create_lead(
         if region_row:
             region_id = region_row[0]
 
-    # Create lead at stage "1" (В работе) — per contract
+    # ADR-005 S7 (RETURNED Owner 07.09): лиды из MI стартуют «в разведке» —
+    # стадия "0" (Серые лиды). Сразу «В работе» = premature pressure.
+    initial_stage = "0" if (body.source or "") == "RAI_MI" else "1"
     lead = Lead(
         name=body.name,
         inn=body.inn,
         region_id=region_id,
         level=body.level,
         priority=body.priority,
-        stage="1",
+        stage=initial_stage,
         stage_changed_at=datetime.now(timezone.utc),
         opportunity_ref=body.opportunity_ref,
         source=body.source,
@@ -164,7 +166,7 @@ async def create_lead(
     history = StageHistory(
         lead_id=lead.id,
         from_stage=None,
-        to_stage="1",
+        to_stage=initial_stage,
         note=f"MI handoff: {body.opportunity_ref}",
     )
     session.add(history)
