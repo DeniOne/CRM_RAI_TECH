@@ -175,6 +175,24 @@ async def init_db():
             )
         )
 
+    # Миграция: MI Integration поля (V13 CRM handoff)
+    new_mi_integration_columns = [
+        ("opportunity_ref", "VARCHAR(64) UNIQUE"),
+        ("source", "VARCHAR(32)"),
+        ("evidence_summary", "TEXT"),
+        ("sellability_grade", "VARCHAR(1)"),
+        ("value_hypothesis_summary", "TEXT"),
+        ("recommended_action", "TEXT"),
+    ]
+    async with async_engine.begin() as conn:
+        existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(leads)"))
+        existing_cols = {row[1] for row in existing.fetchall()}
+        for col_name, col_type in new_mi_integration_columns:
+            if col_name not in existing_cols:
+                await conn.execute(
+                    sqlalchemy_text(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
+                )
+
     # Create default admin
     async with async_session_maker() as session:
         from app.auth import create_default_admin
