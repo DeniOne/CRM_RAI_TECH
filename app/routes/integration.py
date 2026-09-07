@@ -61,6 +61,19 @@ class OutcomeResponse(BaseModel):
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
+@router.get("/catalog")
+async def get_catalog(x_api_key: str = Header(default=""), session: AsyncSession = Depends(get_session)):
+    """Каталог CRM для MI sync (V12). Восстановлен после перезаписи файла в V13."""
+    _check_key(x_api_key)
+    cats = (await session.execute(text("SELECT id, name, parent_id, sort_order FROM product_categories ORDER BY sort_order"))).mappings().all()
+    prods = (await session.execute(text("SELECT id, category_id, name, sku, unit, description FROM products"))).mappings().all()
+    return {
+        "categories": [dict(c) for c in cats],
+        "products": [dict(p) for p in prods],
+        "source_revision": f"crm-{len(prods)}",
+    }
+
+
 @router.get("/leads/by-inn/{inn}")
 async def get_lead_by_inn(
     inn: str,
