@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +45,8 @@ class LeadResponse(BaseModel):
     stage: str
     opportunity_ref: Optional[str] = None
     source: Optional[str] = None
+    dedup_result: Optional[str] = None  # attached | created_new_cycle | manual_review
+    predecessor_lead_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -141,6 +144,52 @@ async def create_lead(
         if region_row:
             region_id = region_row[0]
 
+    # Дедуп по ИНН — статусная политика (Owner 07.09):
+    #   0–5 или postponed → attach к незавершённому лиду (контекст обновляем, стадию не трогаем);
+    #   несколько незавершённых → manual_review (решает человек);
+    #   lost/6/7 → новый цикл: predecessor_lead_id + причина прошлого проигрыша.
+    unfinished_stages = {"0", "1", "2", "3", "4", "5", "postponed"}
+    finished_stages = {"6", "7", "lost"}
+    leads_by_inn = []
+    if body.inn:
+        res_by_inn = await session.execute(
+            select(Lead).where(Lead.inn == body.inn).order_by(Lead.created_at.desc())
+        )
+        leads_by_inn = list(res_by_inn.scalars().all())
+    unfinished = [l for l in leads_by_inn if l.stage in unfinished_stages]
+
+    if len(unfinished) > 1:
+        return JSONResponse(status_code=200, content={
+            "dedup_result": "manual_review",
+            "opportunity_ref": body.opportunity_ref,
+            "candidates": [
+                {"id": l.id, "stage": l.stage, "name": l.name, "opportunity_ref": l.opportunity_ref}
+                for l in unfinished[:5]
+            ],
+        })
+
+    if unfinished:
+        lead = unfinished[0]
+        lead.evidence_summary = body.evidence_summary or lead.evidence_summary
+        lead.sellability_grade = body.sellability_grade or lead.sellability_grade
+        lead.value_hypothesis_summary = body.value_hypothesis_summary or lead.value_hypothesis_summary
+        lead.recommended_action = body.next_action or lead.recommended_action
+        if not lead.opportunity_ref:
+            lead.opportunity_ref = body.opportunity_ref
+        await session.commit()
+        await session.refresh(lead)
+        return LeadResponse(
+            id=lead.id, name=lead.name, inn=lead.inn, stage=lead.stage,
+            opportunity_ref=lead.opportunity_ref, source=lead.source,
+            dedup_result="attached",
+        )
+
+    predecessor_lead = None
+    if leads_by_inn and (body.source or "") == "RAI_MI":
+        finished = [l for l in leads_by_inn if l.stage in finished_stages]
+        if finished:
+            predecessor_lead = max(finished, key=lambda x: x.created_at)
+
     # ADR-005 S7 (RETURNED Owner 07.09): лиды из MI стартуют «в разведке» —
     # стадия "0" (Серые лиды). Сразу «В работе» = premature pressure.
     initial_stage = "0" if (body.source or "") == "RAI_MI" else "1"
@@ -158,7 +207,12 @@ async def create_lead(
         sellability_grade=body.sellability_grade,
         value_hypothesis_summary=body.value_hypothesis_summary,
         recommended_action=body.next_action,
+        predecessor_lead_id=predecessor_lead.id if predecessor_lead else None,
     )
+    if predecessor_lead is not None and predecessor_lead.stage == "lost":
+        prev_reason = predecessor_lead.loss_reason or "не указана"
+        prev_note = f"[Предыдущий цикл] lead {predecessor_lead.id} (lost): {prev_reason}"
+        lead.evidence_summary = f"{lead.evidence_summary}; {prev_note}" if lead.evidence_summary else prev_note
     session.add(lead)
     await session.flush()
 
@@ -175,6 +229,8 @@ async def create_lead(
 
     return LeadResponse(
         id=lead.id,
+        dedup_result="created_new_cycle",
+        predecessor_lead_id=predecessor_lead.id if predecessor_lead else None,
         name=lead.name,
         inn=lead.inn,
         stage=lead.stage,

@@ -185,6 +185,7 @@ async def init_db():
         ("sellability_grade", "VARCHAR(1)"),
         ("value_hypothesis_summary", "TEXT"),
         ("recommended_action", "TEXT"),
+        ("predecessor_lead_id", "INTEGER"),
     ]
     async with async_engine.begin() as conn:
         existing = await conn.execute(sqlalchemy_text("PRAGMA table_info(leads)"))
