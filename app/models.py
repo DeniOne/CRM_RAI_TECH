@@ -168,6 +168,8 @@ class Lead(Base):
     sellability_grade: Mapped[Optional[str]] = mapped_column(String(1), nullable=True)
     value_hypothesis_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     recommended_action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # V13.1 дедуп по ИНН: новый цикл после lost/6/7 ссылается на предыдущий лид.
+    predecessor_lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leads.id"), nullable=True)
 
     # Notes
     general_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
