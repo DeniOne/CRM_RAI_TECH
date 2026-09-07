@@ -176,8 +176,10 @@ async def init_db():
         )
 
     # Миграция: MI Integration поля (V13 CRM handoff)
+    # UNIQUE в ALTER TABLE ADD COLUMN невозможен в SQLite — уникальность
+    # обеспечивается отдельным индексом ниже (NULLs допускаются).
     new_mi_integration_columns = [
-        ("opportunity_ref", "VARCHAR(64) UNIQUE"),
+        ("opportunity_ref", "VARCHAR(64)"),
         ("source", "VARCHAR(32)"),
         ("evidence_summary", "TEXT"),
         ("sellability_grade", "VARCHAR(1)"),
@@ -192,6 +194,11 @@ async def init_db():
                 await conn.execute(
                     sqlalchemy_text(f"ALTER TABLE leads ADD COLUMN {col_name} {col_type}")
                 )
+        await conn.execute(
+            sqlalchemy_text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_leads_opportunity_ref ON leads(opportunity_ref)"
+            )
+        )
 
     # Create default admin
     async with async_session_maker() as session:
