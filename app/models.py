@@ -161,6 +161,14 @@ class Lead(Base):
     stage_changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
     loss_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # MI Integration fields (M4.13 / V13)
+    opportunity_ref: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    source: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    evidence_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sellability_grade: Mapped[Optional[str]] = mapped_column(String(1), nullable=True)
+    value_hypothesis_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    recommended_action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Notes
     general_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     done_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

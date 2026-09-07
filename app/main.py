@@ -26,7 +26,7 @@ EXEMPT_PATHS = {"/login", "/docs", "/openapi.json", "/favicon.ico", "/invite"}
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path.startswith("/static") or path in EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/invite"):
+        if path.startswith("/static") or path in EXEMPT_PATHS or path.startswith("/docs") or path.startswith("/invite") or path.startswith("/api/v1/integration"):
             return await call_next(request)
         token = request.cookies.get("session")
         if not token and path != "/login":
