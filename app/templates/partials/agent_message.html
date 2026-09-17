@@ -1,0 +1,10 @@
+{# Одно сообщение чата агента (фаза 27). Единственный источник разметки:
+   страница /agent, ответ /agent/send и поллинг /agent/updates.
+   data-msg-id нужен клиенту для курсора поллинга (after_id). #}
+<div data-msg-id="{{ msg.id }}" class="{% if msg.role == 'user' %}text-right{% else %}text-left{% endif %}">
+    <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl
+        {% if msg.role == 'user' %}bg-ink text-white{% else %}bg-slate-50 border border-black/10 text-ink{% endif %}">
+        <div class="text-sm whitespace-pre-wrap">{{ msg.content }}</div>
+    </div>
+    <div class="text-xs text-muted mt-1">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
+</div>

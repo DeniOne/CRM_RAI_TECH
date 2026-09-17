@@ -16,17 +16,11 @@
         </form>
     </div>
 
-    <div id="chat-history" class="bg-white border border-black/10 rounded-2xl p-6 mb-4 min-h-[400px] max-h-[600px] overflow-y-auto space-y-4">
+    <div id="chat-history" data-last-msg-id="{{ last_message_id|default(0) }}" class="bg-white border border-black/10 rounded-2xl p-6 mb-4 min-h-[400px] max-h-[600px] overflow-y-auto space-y-4">
         {% for msg in messages %}
-        <div class="{% if msg.role == 'user' %}text-right{% else %}text-left{% endif %}">
-            <div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl
-                {% if msg.role == 'user' %}bg-ink text-white{% else %}bg-slate-50 border border-black/10 text-ink{% endif %}">
-                <div class="text-sm whitespace-pre-wrap">{{ msg.content }}</div>
-            </div>
-            <div class="text-xs text-muted mt-1">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
-        </div>
+        {% include "partials/agent_message.html" %}
         {% else %}
-        <div class="text-center text-muted py-12">
+        <div id="chat-empty" class="text-center text-muted py-12">
             <div class="text-sm">Начните разговор с агентом</div>
             <div class="text-xs mt-2">Например: «Найди клиентов в Псковской области»</div>
         </div>
@@ -87,9 +81,78 @@ function escapeHtml(t){var d=document.createElement('div');d.textContent=t;retur
 document.getElementById('message-input').addEventListener('input',function(){autoResize(this);});
 document.getElementById('message-input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('chat-form').dispatchEvent(new Event('submit'));}});
 
-// Клиентский таймаут (мс): чуть больше серверного, чтобы сервер успел вернуть
-// свой timeout-ответ раньше, чем браузер оборвёт fetch. Прокинуто из роута.
-var CLIENT_TIMEOUT_MS = ({{ client_timeout|default(315) }}) * 1000;
+// ─── Асинхронный чат (фаза 27) ──────────────────────────────────────────────
+// /agent/send отвечает сразу (сообщение пользователя), прогон агента идёт
+// фоном, ответы забираются поллингом /agent/updates — поэтому долгий
+// internet-поиск больше не рвёт соединение и ответ не теряется.
+
+var hist=document.getElementById('chat-history');
+var lastMsgId=parseInt(hist.getAttribute('data-last-msg-id'),10)||0;
+var PENDING=0;                       // сколько запросов агента ещё в работе
+var pendingSince=0;                  // Date.now() старейшего незакрытого запроса
+var pollTimer=null;
+// Бюджет сервера + запас: если ответа нет дольше — фоновая задача, скорее
+// всего, потеряна (перезапуск сервиса). Честная клиентская пометка, без записи в БД.
+var AGENT_BUDGET_MS=({{ hermes_timeout|default(2400) }}+120)*1000;
+
+function showIndicator(){
+    if(document.getElementById('typing-indicator'))return;
+    var tp=document.createElement('div');
+    tp.id='typing-indicator';tp.className='text-left';
+    tp.innerHTML='<div class="inline-block px-4 py-3 rounded-2xl bg-slate-50 border border-black/10"><div class="flex gap-1 items-center"><span class="w-2 h-2 rounded-full bg-muted animate-pulse"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.2s"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.4s"></span><span class="text-xs text-muted ml-2">Агент думает...</span></div></div>';
+    hist.appendChild(tp);
+    scrollToBottom();
+}
+// Добавляет серверную разметку сообщений, обновляет курсор lastMsgId.
+// Возвращает число добавленных сообщений ассистента.
+function chatAppend(html){
+    var tmp=document.createElement('div');tmp.innerHTML=html.trim();
+    var assistantAdded=0;
+    var empty=document.getElementById('chat-empty');if(empty)empty.remove();
+    while(tmp.firstChild){
+        var node=tmp.firstChild;
+        if(node.nodeType===1){
+            var nid=parseInt(node.getAttribute('data-msg-id'),10);
+            if(!isNaN(nid)&&nid>lastMsgId)lastMsgId=nid;
+            if(node.className&&node.className.indexOf('text-left')>=0)assistantAdded++;
+        }
+        hist.appendChild(node);
+    }
+    scrollToBottom();
+    return assistantAdded;
+}
+function maybeStopPolling(){
+    if(PENDING>0)return;
+    if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+    var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
+}
+function showStaleNote(){
+    var eb=document.createElement('div');eb.className='text-left';
+    eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Агент не ответил за отведённое время — возможно, сервис перезапускался и запрос потерян. Отправьте запрос повторно.</div></div>';
+    hist.appendChild(eb);scrollToBottom();
+}
+async function pollUpdates(){
+    try{
+        var resp=await fetch('/agent/updates?after_id='+lastMsgId);
+        if(resp.ok){
+            var html=await resp.text();
+            if(html.trim()){
+                var assistantAdded=chatAppend(html);
+                if(assistantAdded>0)PENDING=Math.max(0,PENDING-assistantAdded);
+            }
+        }
+        if(PENDING>0&&Date.now()-pendingSince>AGENT_BUDGET_MS){
+            PENDING=0;
+            showStaleNote();
+        }
+        maybeStopPolling();
+    }catch(e){/* сеть моргнула — повторим на следующем тике */}
+}
+function ensurePolling(){
+    if(PENDING<=0)return;
+    showIndicator();
+    if(!pollTimer)pollTimer=setInterval(pollUpdates,4000);
+}
 
 document.getElementById('chat-form').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -99,47 +162,25 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     if(!msg)return;
     var ctxLeadId=document.getElementById('ctx-lead-id').value;
 
-    var hist=document.getElementById('chat-history');
-    var ub=document.createElement('div');
-    ub.className='text-right';
-    ub.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-ink text-white"><div class="text-sm whitespace-pre-wrap">'+escapeHtml(msg)+'</div></div><div class="text-xs text-muted mt-1">'+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+'</div>';
-    hist.appendChild(ub);
+    // Счётчик ожидаемых ответов: индикатор и поллинг живут, пока PENDING>0
+    // (можно отправлять следующий запрос, не дожидаясь предыдущего).
+    PENDING++;
+    if(PENDING===1||!pendingSince)pendingSince=Date.now();
+    ensurePolling();
 
-    var tp=document.createElement('div');
-    tp.id='typing-indicator';tp.className='text-left';
-    tp.innerHTML='<div class="inline-block px-4 py-3 rounded-2xl bg-slate-50 border border-black/10"><div class="flex gap-1 items-center"><span class="w-2 h-2 rounded-full bg-muted animate-pulse"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.2s"></span><span class="w-2 h-2 rounded-full bg-muted animate-pulse" style="animation-delay:0.4s"></span><span class="text-xs text-muted ml-2">Агент думает...</span></div></div>';
-    hist.appendChild(tp);
-    scrollToBottom();
-
-    // Не чистим input сразу: текст держим до успешного ответа, чтобы при
-    // ошибке/таймауте вернуть его в поле и дать повторить одним кликом.
     input.disabled=true;btn.disabled=true;btn.classList.add('opacity-50','cursor-not-allowed');
-
-    // AbortController — обрываем fetch по клиентскому таймауту, чтобы браузер
-    // не висел «Агент думает...» вечно, если сервер молчит дольше лимита.
-    var controller=new AbortController();
-    var timer=setTimeout(function(){controller.abort();},CLIENT_TIMEOUT_MS);
-
     try{
         var fd=new FormData();fd.append('message',msg);fd.append('context_lead_id',ctxLeadId||'');fd.append('search_mode',document.getElementById('search-mode').value);
-        var resp=await fetch('/agent/send',{method:'POST',body:fd,signal:controller.signal});
-        clearTimeout(timer);
+        var resp=await fetch('/agent/send',{method:'POST',body:fd});
+        if(!resp.ok)throw new Error('HTTP '+resp.status);
         var html=await resp.text();
-        var ti=document.getElementById('typing-indicator');if(ti)ti.remove();
-        var tmp=document.createElement('div');tmp.innerHTML=html.trim();
-        while(tmp.firstChild){hist.appendChild(tmp.firstChild);}
-        scrollToBottom();
-        // Успех — чистим черновик.
+        chatAppend(html);   // серверный bubble пользователя (источник истины, с id)
+        // Успех — чистим черновик; ответ придёт поллингом.
         input.value='';autoResize(input);
     }catch(err){
-        clearTimeout(timer);
-        var ti2=document.getElementById('typing-indicator');if(ti2)ti2.remove();
-        var isTimeout = (err && err.name==='AbortError');
-        var errText = isTimeout
-            ? 'Не удалось получить ответ за отведённое время. Запрос, видимо, потребовал долгого поиска — попробуйте сформулировать короче или повторите через минуту.'
-            : 'Ошибка соединения. Попробуйте снова.';
+        PENDING=Math.max(0,PENDING-1);maybeStopPolling();
         var eb=document.createElement('div');eb.className='text-left';
-        eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">'+escapeHtml(errText)+'</div></div>';
+        eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Ошибка соединения. Попробуйте снова.</div></div>';
         hist.appendChild(eb);scrollToBottom();
         // Вернём исходный текст в поле, чтобы можно было повторить без ручного ввода.
         input.value=msg;autoResize(input);
@@ -158,6 +199,14 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     var input=document.getElementById('message-input');
     if(input.value){autoResize(input);}
     var len=input.value.length;input.focus();if(input.setSelectionRange){input.setSelectionRange(len,len);}
+
+    // Незакрытый запрос (страница открыта заново, а ответ ещё не пришёл или
+    // потерян): продолжаем поллинг с момента последнего сообщения.
+    {% if pending_age is not none %}
+    PENDING=1;
+    pendingSince=Date.now()-({{ pending_age }})*1000;
+    ensurePolling();
+    {% endif %}
 
     // Очищаем URL от prefill-параметров, чтобы при возврате через меню
     // страница грузилась чистой (с историей, без путаницы с prefill)

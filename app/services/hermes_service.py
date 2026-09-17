@@ -35,9 +35,11 @@ async def send_to_hermes(
     search_mode: "crm" (по умолчанию — primary-поиск в CRM) или "internet"
     (primary-поиск в интернете, но CRM доступна если запрос явно про данные CRM).
 
-    При таймауте делает одну тихую повторную попытку тем же payload — зависания
-    агента часто стохастичны (долгий веб-поиск, ретраи upstream-модели), и второй
-    запрос нередко укладывается.
+    Вызывается из фонового прогона (фаза 27): функция ждёт ответ агента до
+    HERMES_TIMEOUT (десятки минут легитимны для веб-поиска) — браузер на ожидание
+    не завязан. Одна попытка без ретрая: повторная генерация того же запроса
+    запускала второй полный прогон агента впустую; при таймауте честная ошибка
+    дописывается в чат фоновой задачей.
     """
     if not settings.HERMES_ENABLED:
         return {
@@ -105,111 +107,97 @@ async def send_to_hermes(
     if settings.HERMES_API_TOKEN:
         headers["Authorization"] = f"Bearer {settings.HERMES_API_TOKEN}"
 
-    # Одна повторная попытка при таймауте (зависания агента часто стохастичны).
-    last_exc: Exception | None = None
-    for attempt in (1, 2):
-        try:
-            async with httpx.AsyncClient(timeout=_hermes_timeout()) as client:
-                resp = await client.post(
-                    f"{settings.HERMES_API_URL}/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                # OpenAI формат: choices[0].message.content
-                reply = (
-                    data.get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "Пустой ответ от агента.")
-                )
-                return {
-                    "reply": reply,
-                    "actions": [],
-                    "error": None,
-                }
-        except httpx.TimeoutException as e:
-            last_exc = e
-            if attempt == 1:
-                logger.warning(
-                    "Hermes timeout (attempt 1/%ds), retrying once — %r",
-                    settings.HERMES_TIMEOUT,
-                    message[:80],
-                )
-                continue
-            logger.warning(
-                "Hermes timeout after retry (attempt 2): %r", message[:80]
+    # Одна попытка: ретрай убран (фаза 27) — повторная генерация того же запроса
+    # порождала второй полный прогон агента, пока пользователь ждал молча.
+    try:
+        async with httpx.AsyncClient(timeout=_hermes_timeout()) as client:
+            resp = await client.post(
+                f"{settings.HERMES_API_URL}/v1/chat/completions",
+                json=payload,
+                headers=headers,
             )
+            resp.raise_for_status()
+            data = resp.json()
+            # OpenAI формат: choices[0].message.content
+            reply = (
+                data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "Пустой ответ от агента.")
+            )
+            return {
+                "reply": reply,
+                "actions": [],
+                "error": None,
+            }
+    except httpx.TimeoutException as e:
+        logger.warning(
+            "Hermes timeout after %ds: %r", settings.HERMES_TIMEOUT, message[:80]
+        )
+        return {
+            "reply": (
+                "Агент не ответил за отведённое время "
+                f"({settings.HERMES_TIMEOUT // 60} мин). Запрос, видимо, потребовал "
+                "слишком долгого поиска. Попробуйте сформулировать короче или "
+                "уточнить (например, название компании вместо номера телефона), "
+                "либо повторите позже."
+            ),
+            "actions": [],
+            "error": "timeout",
+        }
+    except httpx.ConnectError:
+        return {
+            "reply": "Не удалось подключиться к агенту. Проверьте, что Hermes запущен.",
+            "actions": [],
+            "error": "connection",
+        }
+    except httpx.HTTPStatusError as e:
+        # Разбор по статус-коду — даёт пользователю понятное сообщение и
+        # точный action-item для админа, а не сырой дамп httpx.
+        status = e.response.status_code
+        logger.error(
+            "Hermes HTTP %d (token_set=%s, url=%s) — %s",
+            status,
+            bool(settings.HERMES_API_TOKEN),
+            settings.HERMES_API_URL,
+            e.response.text[:300],
+        )
+        if status == 401:
             return {
                 "reply": (
-                    "Не удалось получить ответ за отведённое время — запрос, "
-                    "видимо, потребовал долгого поиска. Попробуйте сформулировать "
-                    "короче или уточнить (например, название компании вместо номера "
-                    "телефона), либо повторите через минуту."
+                    "Ошибка авторизации при обращении к агенту (401). "
+                    "Скорее всего, токен Hermes не задан или устарел в "
+                    "окружении CRM. Проверьте HERMES_API_TOKEN в .env и "
+                    "ПЕРЕСОЗДАЙТЕ контейнер (`docker compose up -d`)."
                 ),
-                "actions": [],
-                "error": "timeout",
-            }
-        except httpx.ConnectError:
-            return {
-                "reply": "Не удалось подключиться к агенту. Проверьте, что Hermes запущен.",
-                "actions": [],
-                "error": "connection",
-            }
-        except httpx.HTTPStatusError as e:
-            # Разбор по статус-коду — даёт пользователю понятное сообщение и
-            # точный action-item для админа, а не сырой дамп httpx.
-            status = e.response.status_code
-            logger.error(
-                "Hermes HTTP %d (token_set=%s, url=%s) — %s",
-                status,
-                bool(settings.HERMES_API_TOKEN),
-                settings.HERMES_API_URL,
-                e.response.text[:300],
-            )
-            if status == 401:
-                return {
-                    "reply": (
-                        "Ошибка авторизации при обращении к агенту (401). "
-                        "Скорее всего, токен Hermes не задан или устарел в "
-                        "окружении CRM. Проверьте HERMES_API_TOKEN в .env и "
-                        "ПЕРЕСОЗДАЙТЕ контейнер (`docker compose up -d`)."
-                    ),
-                    "actions": [],
-                    "error": f"http_{status}",
-                }
-            if status == 404:
-                return {
-                    "reply": (
-                        "Агент недоступен по указанному адресу (404). "
-                        f"Проверьте HERMES_API_URL={settings.HERMES_API_URL}."
-                    ),
-                    "actions": [],
-                    "error": f"http_{status}",
-                }
-            if status >= 500:
-                return {
-                    "reply": (
-                        "Ошибка на стороне агента (сервер Hermes). "
-                        "Попробуйте повторить через минуту."
-                    ),
-                    "actions": [],
-                    "error": f"http_{status}",
-                }
-            return {
-                "reply": f"Ошибка при обращении к агенту: HTTP {status}.",
                 "actions": [],
                 "error": f"http_{status}",
             }
-        except Exception as e:
+        if status == 404:
             return {
-                "reply": f"Произошла ошибка при обращении к агенту: {str(e)}",
+                "reply": (
+                    "Агент недоступен по указанному адресу (404). "
+                    f"Проверьте HERMES_API_URL={settings.HERMES_API_URL}."
+                ),
                 "actions": [],
-                "error": str(e),
+                "error": f"http_{status}",
             }
-    # Сюда попадаем только если цикл завершился нетипично.
-    return {
-        "reply": f"Произошла ошибка при обращении к агенту: {last_exc}",
-        "actions": [],
-        "error": str(last_exc) if last_exc else "unknown",
-    }
+        if status >= 500:
+            return {
+                "reply": (
+                    "Ошибка на стороне агента (сервер Hermes). "
+                    "Попробуйте повторить через минуту."
+                ),
+                "actions": [],
+                "error": f"http_{status}",
+            }
+        return {
+            "reply": f"Ошибка при обращении к агенту: HTTP {status}.",
+            "actions": [],
+            "error": f"http_{status}",
+        }
+    except Exception as e:
+        return {
+            "reply": f"Произошла ошибка при обращении к агенту: {str(e)}",
+            "actions": [],
+            "error": str(e),
+        }
