@@ -1,2 +1,7 @@
-{# Список сообщений чата (фаза 27) — ответ /agent/updates для поллинга. #}
+{# Список сообщений чата (фазы 27–28) — ответ /agent/updates для поллинга.
+   Маркер в конце — серверная истина о незавершённых прогонах: клиент забирает
+   его до вставки в DOM и решает, ждать дальше или признать запрос потерянным. #}
 {% for msg in messages %}{% include "partials/agent_message.html" %}{% endfor %}
+{% if pending_jobs %}
+<div id="agent-jobs-marker" class="hidden" data-count="{{ pending_jobs }}"></div>
+{% endif %}

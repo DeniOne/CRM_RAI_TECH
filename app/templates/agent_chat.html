@@ -16,7 +16,7 @@
         </form>
     </div>
 
-    <div id="chat-history" data-last-msg-id="{{ last_message_id|default(0) }}" class="bg-white border border-black/10 rounded-2xl p-6 mb-4 min-h-[400px] max-h-[600px] overflow-y-auto space-y-4">
+    <div id="chat-history" data-last-msg-id="{{ last_message_id|default(0) }}" data-jobs-pending="{{ pending_jobs|default(0) }}" class="bg-white border border-black/10 rounded-2xl p-6 mb-4 min-h-[400px] max-h-[600px] overflow-y-auto space-y-4">
         {% for msg in messages %}
         {% include "partials/agent_message.html" %}
         {% else %}
@@ -81,19 +81,17 @@ function escapeHtml(t){var d=document.createElement('div');d.textContent=t;retur
 document.getElementById('message-input').addEventListener('input',function(){autoResize(this);});
 document.getElementById('message-input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('chat-form').dispatchEvent(new Event('submit'));}});
 
-// ─── Асинхронный чат (фаза 27) ──────────────────────────────────────────────
-// /agent/send отвечает сразу (сообщение пользователя), прогон агента идёт
-// фоном, ответы забираются поллингом /agent/updates — поэтому долгий
-// internet-поиск больше не рвёт соединение и ответ не теряется.
+// ─── Асинхронный чат (фазы 27–28) ───────────────────────────────────────────
+// /agent/send отвечает сразу (сообщение пользователя + задача в персистентной
+// очереди agent_jobs), прогон агента идёт фоном и переживает рестарт сервера,
+// ответы забираются поллингом /agent/updates. Ждать дальше или признать запрос
+// потерянным подсказывает сервер (маркер agent-jobs-marker), а не таймер.
 
 var hist=document.getElementById('chat-history');
 var lastMsgId=parseInt(hist.getAttribute('data-last-msg-id'),10)||0;
-var PENDING=0;                       // сколько запросов агента ещё в работе
-var pendingSince=0;                  // Date.now() старейшего незакрытого запроса
+var PENDING=parseInt(hist.getAttribute('data-jobs-pending'),10)||0;
 var pollTimer=null;
-// Бюджет сервера + запас: если ответа нет дольше — фоновая задача, скорее
-// всего, потеряна (перезапуск сервиса). Честная клиентская пометка, без записи в БД.
-var AGENT_BUDGET_MS=({{ hermes_timeout|default(2400) }}+120)*1000;
+var staleTicks=0;   // опросы подряд без ответа И без незавершённых задач сервера
 
 function showIndicator(){
     if(document.getElementById('typing-indicator'))return;
@@ -104,11 +102,17 @@ function showIndicator(){
     scrollToBottom();
 }
 // Добавляет серверную разметку сообщений, обновляет курсор lastMsgId.
-// Возвращает число добавленных сообщений ассистента.
+// Возвращает {assistantAdded, serverJobs} — сколько ответов пришло и сколько
+// прогонов ещё незавершённо на сервере (маркер из ответа updates).
 function chatAppend(html){
     var tmp=document.createElement('div');tmp.innerHTML=html.trim();
-    var assistantAdded=0;
+    var assistantAdded=0, serverJobs=0;
     var empty=document.getElementById('chat-empty');if(empty)empty.remove();
+    var marker=tmp.querySelector('#agent-jobs-marker');
+    if(marker){
+        serverJobs=parseInt(marker.getAttribute('data-count'),10)||0;
+        marker.remove();
+    }
     while(tmp.firstChild){
         var node=tmp.firstChild;
         if(node.nodeType===1){
@@ -119,7 +123,7 @@ function chatAppend(html){
         hist.appendChild(node);
     }
     scrollToBottom();
-    return assistantAdded;
+    return {assistantAdded:assistantAdded, serverJobs:serverJobs};
 }
 function maybeStopPolling(){
     if(PENDING>0)return;
@@ -128,7 +132,7 @@ function maybeStopPolling(){
 }
 function showStaleNote(){
     var eb=document.createElement('div');eb.className='text-left';
-    eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Агент не ответил за отведённое время — возможно, сервис перезапускался и запрос потерян. Отправьте запрос повторно.</div></div>';
+    eb.innerHTML='<div class="inline-block max-w-[80%] px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700"><div class="text-sm">Запрос агента потерян (вероятно, сервер перезапускался). Отправьте запрос повторно.</div></div>';
     hist.appendChild(eb);scrollToBottom();
 }
 async function pollUpdates(){
@@ -136,17 +140,27 @@ async function pollUpdates(){
         var resp=await fetch('/agent/updates?after_id='+lastMsgId);
         if(resp.ok){
             var html=await resp.text();
+            var assistantAdded=0, serverJobs=0;
             if(html.trim()){
-                var assistantAdded=chatAppend(html);
+                var r=chatAppend(html);
+                assistantAdded=r.assistantAdded;serverJobs=r.serverJobs;
                 if(assistantAdded>0)PENDING=Math.max(0,PENDING-assistantAdded);
             }
-        }
-        if(PENDING>0&&Date.now()-pendingSince>AGENT_BUDGET_MS){
-            PENDING=0;
-            showStaleNote();
+            // Серверная истина: задачи ещё есть → ждать; задач нет и ответ не
+            // пришёл 3 опроса подряд → прогон потерян без записи в БД.
+            if(PENDING>0){
+                if(assistantAdded>0||serverJobs>0){staleTicks=0;}
+                else{
+                    staleTicks++;
+                    if(staleTicks>=3){
+                        PENDING=0;staleTicks=0;
+                        showStaleNote();
+                    }
+                }
+            }
         }
         maybeStopPolling();
-    }catch(e){/* сеть моргнула — повторим на следующем тике */}
+    }catch(e){/* сеть моргнула или сервер перезапускается — следующий тик */}
 }
 function ensurePolling(){
     if(PENDING<=0)return;
@@ -200,13 +214,10 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
     if(input.value){autoResize(input);}
     var len=input.value.length;input.focus();if(input.setSelectionRange){input.setSelectionRange(len,len);}
 
-    // Незакрытый запрос (страница открыта заново, а ответ ещё не пришёл или
-    // потерян): продолжаем поллинг с момента последнего сообщения.
-    {% if pending_age is not none %}
-    PENDING=1;
-    pendingSince=Date.now()-({{ pending_age }})*1000;
+    // Незавершённые прогоны (страница открыта заново, ответ ещё не пришёл —
+    // в т.ч. после рестарта сервера): продолжаем поллинг. PENDING уже прочитан
+    // из data-jobs-pending (серверная истина), здесь только старт.
     ensurePolling();
-    {% endif %}
 
     // Очищаем URL от prefill-параметров, чтобы при возврате через меню
     // страница грузилась чистой (с историей, без путаницы с prefill)

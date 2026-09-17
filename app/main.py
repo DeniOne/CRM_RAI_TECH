@@ -39,6 +39,16 @@ async def lifespan(app: FastAPI):
     settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     await init_db()
 
+    # Восстановление незавершённых прогонов агента после рестарта (фаза 28):
+    # задачи живут в agent_jobs, при старте pending/running перезапускаются.
+    from app.routes.agent import recover_stuck_agent_jobs
+
+    recovered = await recover_stuck_agent_jobs()
+    if recovered:
+        logger.warning(
+            "Recovered %d in-flight agent job(s) from previous run", recovered
+        )
+
     # Предзапускная sanity-проверка интеграции с Hermes. Ловит частый рассинхрон:
     # .env на сервере обновили (положили HERMES_API_TOKEN), но контейнер не
     # пересоздали (docker compose up) — он держит в памяти старый env и шлёт

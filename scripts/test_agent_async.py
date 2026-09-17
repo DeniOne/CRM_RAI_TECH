@@ -20,6 +20,8 @@ from fastapi.testclient import TestClient
 
 FAKE_REPLY = "ТЕСТОВЫЙ-ОТВЕТ-27"
 FAKE_ERROR_REPLY = "ТЕСТОВЫЙ-ОТВЕТ-27-ОШИБКА"
+DB_PATH = str(settings.STORAGE_DIR / "crm.db")
+_max_job_id_at_start = 0
 
 
 async def fake_agent_ok(*args, **kwargs):
@@ -33,7 +35,7 @@ async def fake_agent_error(*args, **kwargs):
 
 
 def _admin_id() -> int:
-    conn = sqlite3.connect(settings.STORAGE_DIR / "crm.db")
+    conn = sqlite3.connect(DB_PATH)
     try:
         row = conn.execute(
             "SELECT id FROM users WHERE email = 'admin@crm.local' LIMIT 1"
@@ -46,12 +48,17 @@ def _admin_id() -> int:
 
 
 def _cleanup(user_id: int, min_id: int) -> None:
-    """Удаляет только строки, созданные тестом (id >= min_id)."""
-    conn = sqlite3.connect(settings.STORAGE_DIR / "crm.db")
+    """Удаляет только строки, созданные тестом (сообщения id >= min_id, все
+    задачи, созданные после старта теста)."""
+    conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute(
             "DELETE FROM agent_messages WHERE user_id = ? AND id >= ?",
             (user_id, min_id),
+        )
+        conn.execute(
+            "DELETE FROM agent_jobs WHERE user_id = ? AND id > ?",
+            (user_id, _max_job_id_at_start),
         )
         conn.commit()
     finally:
@@ -62,15 +69,23 @@ def main() -> int:
     # Подменяем агента ДО клиента: agent.py импортировал имя к себе в namespace.
     agent_module.send_to_hermes = fake_agent_ok
 
+    admin_id = _admin_id()
+    global _max_job_id_at_start
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        _max_job_id_at_start = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) FROM agent_jobs"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    failures = []
+
     # with-контекст обязателен: он держит ОДИН event loop на все запросы.
     # Без него TestClient закрывает loop после каждого запроса и фоновая
     # задача прогона умирает вместе с ним (в проде uvicorn живёт постоянно).
     with TestClient(app) as client:
         r = client.post("/login", data={"email": "admin@crm.local", "password": "admin"})
         assert r.status_code in (200, 303), f"login failed: {r.status_code}"
-
-        admin_id = _admin_id()
-        failures = []
 
         # ── 1. /agent/send отвечает сразу, ответа агента в ответе нет ──
         t0 = time.monotonic()

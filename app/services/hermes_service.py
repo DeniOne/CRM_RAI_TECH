@@ -26,6 +26,7 @@ async def send_to_hermes(
     role: str,
     context_lead_id: int = None,
     search_mode: str = "crm",
+    idempotency_key: str = None,
 ) -> dict:
     """
     Отправляет сообщение в Hermes через OpenAI-совместимый API.
@@ -106,6 +107,11 @@ async def send_to_hermes(
     headers = {"Content-Type": "application/json"}
     if settings.HERMES_API_TOKEN:
         headers["Authorization"] = f"Bearer {settings.HERMES_API_TOKEN}"
+    if idempotency_key:
+        # Шлюз hermes дедуплицирует по Idempotency-Key: повторный запрос с тем
+        # же ключом (восстановление прогона после рестарта CRM, фаза 28) может
+        # вернуть результат оригинала вместо второго полного прогона агента.
+        headers["Idempotency-Key"] = idempotency_key
 
     # Одна попытка: ретрай убран (фаза 27) — повторная генерация того же запроса
     # порождала второй полный прогон агента, пока пользователь ждал молча.

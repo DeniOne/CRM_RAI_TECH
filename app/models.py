@@ -604,3 +604,28 @@ class PrintTemplate(Base):
     conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # условия после таблицы
     signature: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # подпись
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class AgentJob(Base):
+    """Фоновый прогон агента (фаза 28) — персистентная очередь чата.
+
+    Живёт в БД, а не в памяти: рестарт контейнера не теряет запрос — при старте
+    recover_stuck_agent_jobs() перезапускает pending/running прогоны. Статусы:
+    pending → running → done|failed; pending/running → cancelled («Очистить
+    историю»). user_name/role — снимки на момент отправки: восстановленный
+    прогон идёт с исходным контекстом, даже если автора переименовали/удалили.
+    """
+    __tablename__ = "agent_jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_name: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(20))
+    message: Mapped[str] = mapped_column(Text)
+    context_lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("leads.id"), nullable=True)
+    search_mode: Mapped[str] = mapped_column(String(20), default="crm")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    agent_message_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
