@@ -15,3 +15,4 @@ itsdangerous
 httpx
 weasyprint
 num2words
+Pillow
