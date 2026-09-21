@@ -7,7 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from zoneinfo import ZoneInfo
 
-from app.auth import authenticate_user, set_session, clear_session, hash_password
+from app.auth import (
+    authenticate_user, set_session, clear_session, hash_password,
+    set_remembered_login, clear_remembered_login, remembered_login_from,
+)
 from app.database import get_session
 from app.models import User, UserRole, Invite, InvitePurpose
 from app.tz_utils import DEFAULT_TZ
@@ -33,7 +36,12 @@ def _valid_timezone(value: str | None) -> str | None:
 @router.get("/login")
 async def login_page(request: Request):
     from app.main import templates
-    return templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+    remembered_email = remembered_login_from(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": None, "remembered_email": remembered_email},
+    )
 
 
 @router.post("/login")
@@ -41,6 +49,7 @@ async def login_submit(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    remember: str = Form(None),
     timezone: str = Form(None),
     session: AsyncSession = Depends(get_session),
 ):
@@ -58,6 +67,10 @@ async def login_submit(
 
     response = RedirectResponse("/", status_code=303)
     set_session(response, user.id)
+    if remember:
+        set_remembered_login(response, user.email)
+    else:
+        clear_remembered_login(response)
     return response
 
 

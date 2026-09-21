@@ -139,6 +139,33 @@ function deleteUser(userId, userName) {
         .catch(function(err) { alert(err.message); });
 }
 
+function openCredentials(userId) {
+    openDrawer('/admin/users/' + userId + '/credentials/form', 'Логин и пароль');
+}
+
+function submitCredentials(event, userId, field) {
+    event.preventDefault();
+    var form = event.target;
+    var data = new URLSearchParams(new FormData(form));
+    fetch('/admin/users/' + userId + '/' + field, { method: 'POST', body: data })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) { throw new Error(extractErr(d, 'Ошибка')); });
+            }
+            return r.text();
+        })
+        .then(function(html) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = html.trim();
+            var newRow = tmp.firstElementChild;
+            var oldRow = document.getElementById('user-row-' + userId);
+            if (oldRow && newRow) { oldRow.replaceWith(newRow); }
+            closeDrawer();
+        })
+        .catch(function(err) { alert(err.message); });
+    return false;
+}
+
 function resetPassword(userId) {
     if (!confirm('Создать ссылку для сброса пароля?\nСсылка действительна 1 час.')) {
         return;

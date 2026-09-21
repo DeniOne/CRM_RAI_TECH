@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -226,6 +227,91 @@ async def change_role(
             raise HTTPException(status_code=422, detail="Нельзя понизить последнего администратора")
 
     target.role = UserRole(role)
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/user_row.html",
+        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS},
+    )
+
+
+# ─── Смена логина и пароля (напрямую, без ссылки-приглашения) ───────
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+async def _get_target_user(session: AsyncSession, user_id: int) -> User:
+    result = await session.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404)
+    return target
+
+
+@router.get("/admin/users/{user_id}/credentials/form", response_class=HTMLResponse)
+async def credentials_form(
+    request: Request,
+    user_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await require_role("admin")(request, session)
+    target = await _get_target_user(session, user_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/user_credentials_form.html",
+        context={"current_user": user, "u": target, "is_self": target.id == user.id},
+    )
+
+
+@router.post("/admin/users/{user_id}/email", response_class=HTMLResponse)
+async def change_email(
+    request: Request,
+    user_id: int,
+    email: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await require_role("admin")(request, session)
+    target = await _get_target_user(session, user_id)
+
+    email = email.strip().lower()
+    if not _EMAIL_RE.match(email) or len(email) > 255:
+        raise HTTPException(status_code=422, detail="Некорректный email")
+
+    existing = await session.execute(select(User).where(User.email == email, User.id != user_id))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Пользователь с таким email уже существует")
+
+    target.email = email
+    await session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/user_row.html",
+        context={"current_user": user, "u": target, "role_labels": ROLE_LABELS},
+    )
+
+
+@router.post("/admin/users/{user_id}/password", response_class=HTMLResponse)
+async def set_password(
+    request: Request,
+    user_id: int,
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.main import templates
+    user = await require_role("admin")(request, session)
+    target = await _get_target_user(session, user_id)
+
+    if len(password) < 6:
+        raise HTTPException(status_code=422, detail="Пароль должен быть не короче 6 символов")
+    if password != password_confirm:
+        raise HTTPException(status_code=422, detail="Пароли не совпадают")
+
+    target.password_hash = hash_password(password)
     await session.commit()
 
     return templates.TemplateResponse(

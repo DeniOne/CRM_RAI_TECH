@@ -15,6 +15,11 @@ serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
 SESSION_COOKIE = "session"
 SESSION_MAX_AGE = 86400
 
+# «Запомнить логин» — хранит только email для подстановки в форму входа
+# на этой машине/браузере; пароль всегда вводится вручную.
+REMEMBER_COOKIE = "remembered_login"
+REMEMBER_MAX_AGE = 180 * 86400
+
 
 def hash_password(password: str) -> str:
     salt = os.urandom(32)
@@ -74,6 +79,22 @@ def set_session(response: Response, user_id: int):
 
 def clear_session(response: Response):
     response.delete_cookie(SESSION_COOKIE)
+
+
+def set_remembered_login(response: Response, email: str):
+    response.set_cookie(REMEMBER_COOKIE, email, httponly=True, max_age=REMEMBER_MAX_AGE, samesite="lax")
+
+
+def clear_remembered_login(response: Response):
+    response.delete_cookie(REMEMBER_COOKIE)
+
+
+def remembered_login_from(request: Request) -> str | None:
+    """Email для подстановки в форму входа; мусор из cookie игнорируем."""
+    value = request.cookies.get(REMEMBER_COOKIE)
+    if value and "@" in value and len(value) <= 255 and " " not in value:
+        return value
+    return None
 
 
 async def get_current_user(request: Request, session: AsyncSession) -> User | None:
